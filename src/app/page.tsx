@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PRESET_PAIRS } from '@/lib/presets';
 import { VisionMode, ComparisonResult } from '@/types/fly';
 import { computeImageMetrics, compareDrosophilaIcons } from '@/lib/visionEngine';
+import { DrosophilaFly } from '@/components/DrosophilaFly';
 import { CompoundEyeViewer } from '@/components/CompoundEyeViewer';
 import { Brain3D } from '@/components/Brain3D';
 import { SpikeRasterPlot } from '@/components/SpikeRasterPlot';
@@ -13,11 +14,16 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
   Cpu,
   Eye,
-  Activity,
-  Zap,
+  Share2,
+  Check,
+  ShieldCheck,
+  Sparkle,
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 export default function Home() {
   const [selectedPresetId, setSelectedPresetId] = useState<string>(PRESET_PAIRS[0].id);
@@ -26,18 +32,19 @@ export default function Home() {
   const [iconAUrl, setIconAUrl] = useState<string>(PRESET_PAIRS[0].iconAUrl);
   const [iconBUrl, setIconBUrl] = useState<string>(PRESET_PAIRS[0].iconBUrl);
 
-  const [visionMode, setVisionMode] = useState<VisionMode>('ommatidia');
   const [isSimulating, setIsSimulating] = useState(false);
   const [simPhase, setSimPhase] = useState<string>('');
-  const [simProgress, setSimProgress] = useState<number>(0);
   const [result, setResult] = useState<ComparisonResult | null>(null);
+  const [hoveredSide, setHoveredSide] = useState<'A' | 'B' | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'eye' | 'brain' | 'raster'>('eye');
+  // Expandable nerdy inspector (optional so the UI remains super clean)
+  const [showInspector, setShowInspector] = useState(false);
+  const [visionMode, setVisionMode] = useState<VisionMode>('ommatidia');
+  const [inspectorTab, setInspectorTab] = useState<'eye' | 'brain' | 'spikes'>('eye');
 
   const fileInputRefA = useRef<HTMLInputElement>(null);
   const fileInputRefB = useRef<HTMLInputElement>(null);
 
-  // Switch preset
   const handleSelectPreset = (presetId: string) => {
     const p = PRESET_PAIRS.find((x) => x.id === presetId);
     if (!p) return;
@@ -49,7 +56,6 @@ export default function Home() {
     setResult(null);
   };
 
-  // Upload handler for custom icons
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'A' | 'B') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -70,11 +76,9 @@ export default function Home() {
     reader.readAsDataURL(file);
   };
 
-  // Run the multi-stage biological simulation
   const runSimulation = () => {
     setIsSimulating(true);
-    setSimProgress(5);
-    setSimPhase('Projecting onto 800 ommatidia hexagonal facets...');
+    setSimPhase('The fly is inspecting Candidate A & B...');
 
     const imgA = new Image();
     const imgB = new Image();
@@ -83,25 +87,14 @@ export default function Home() {
 
     let loaded = 0;
     const onBothLoaded = () => {
-      // Step 1: Canvas processing
       setTimeout(() => {
-        setSimProgress(30);
-        setSimPhase('Firing Lamina L1/L2 high-pass edge contrast detectors...');
-      }, 500);
+        setSimPhase('Stimulating 800 ommatidia facets & optic lobes...');
+      }, 600);
 
-      // Step 2: Medulla motion & phototaxis
       setTimeout(() => {
-        setSimProgress(60);
-        setSimPhase('Calculating Medulla T4/T5 optical flow & UV/blue phototaxis...');
-      }, 1100);
+        setSimPhase('Measuring mushroom body dopamine release...');
+      }, 1200);
 
-      // Step 3: Mushroom body dopamine release
-      setTimeout(() => {
-        setSimProgress(85);
-        setSimPhase('Modulating Mushroom Body Kenyon cells with dopamine reward...');
-      }, 1700);
-
-      // Final evaluation
       setTimeout(() => {
         const cA = document.createElement('canvas');
         cA.width = 256;
@@ -120,10 +113,16 @@ export default function Home() {
 
         const comparison = compareDrosophilaIcons(metricsA, metricsB, nameA, nameB);
         setResult(comparison);
-        setSimProgress(100);
-        setSimPhase('Biological audit complete.');
         setIsSimulating(false);
-      }, 2300);
+
+        // Fun celebration confetti
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#38bdf8', '#a855f7', '#ec4899'],
+        });
+      }, 1800);
     };
 
     imgA.onload = () => {
@@ -139,260 +138,195 @@ export default function Home() {
     imgB.src = iconBUrl;
   };
 
-  // Run automatically on initial load with the default preset
   useEffect(() => {
     runSimulation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div className="w-full flex flex-col items-center py-8 px-4 sm:px-6 max-w-6xl mx-auto gap-10">
-      {/* Hero Headline */}
-      <section className="text-center flex flex-col items-center gap-4 max-w-3xl">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>POWERED BY THE JANELIA DROSOPHILA CONNECTOME (165K NEURONS)</span>
+    <div className="w-full flex flex-col items-center py-8 px-4 sm:px-6 max-w-4xl mx-auto gap-8">
+      {/* Clean Minimal Header */}
+      <header className="text-center flex flex-col items-center gap-2.5">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-300 text-xs font-mono">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Biological ASO • 165,122 Drosophila Neurons</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-tight">
-          Stop Guessing What Humans Want.{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-purple-400">
-            Optimize For The Fruit Fly.
-          </span>
+        <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
+          Let the Fly Pick Your App Icon
         </h1>
 
-        <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
-          Human A/B testing is slow and noisy. We simulate the complete visual circuit of an adult male <em>Drosophila melanogaster</em> to evaluate app icon phototaxis, edge contrast, and saccadic gaze capture in milliseconds.
+        <p className="text-sm sm:text-base text-slate-400 max-w-lg">
+          Drop two icons. An adult fruit fly evaluates phototaxis, edge contrast, and visual gaze in real time.
         </p>
-      </section>
+      </header>
 
-      {/* Preset Selector Carousel */}
-      <section className="w-full flex flex-col gap-2">
-        <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
-          <span>POPULAR ICON BATTLES</span>
-          <span>OR UPLOAD YOUR OWN ICONS BELOW</span>
-        </div>
+      {/* Quick Presets Pills */}
+      <div className="w-full flex items-center justify-center gap-2 flex-wrap">
+        <span className="text-xs font-mono text-slate-500 mr-1 hidden sm:inline">Presets:</span>
+        {PRESET_PAIRS.map((p) => {
+          const isSelected = selectedPresetId === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => handleSelectPreset(p.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                isSelected
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm'
+                  : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700'
+              }`}
+            >
+              {p.title}
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {PRESET_PAIRS.map((p) => {
-            const isSelected = selectedPresetId === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => handleSelectPreset(p.id)}
-                className={`flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-left border transition-all ${
-                  isSelected
-                    ? 'bg-cyan-950/40 border-cyan-500/60 shadow-[0_0_15px_rgba(6,182,212,0.2)] text-white'
-                    : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800/80 hover:border-slate-700'
-                }`}
-              >
-                <div className="flex -space-x-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.iconAUrl} alt="" className="w-7 h-7 rounded-lg border border-slate-700 bg-slate-950" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.iconBUrl} alt="" className="w-7 h-7 rounded-lg border border-slate-700 bg-slate-950" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold leading-tight">{p.title}</div>
-                  <div className="text-[10px] text-slate-400 font-mono">{p.category}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Icon Dropzones / Inputs */}
-      <section className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Upload Box A */}
-        <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={iconAUrl}
-              alt="Icon A"
-              className="w-14 h-14 rounded-2xl border border-slate-700 shadow-md object-contain bg-slate-950"
-            />
-            <div className="flex flex-col">
-              <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase">Candidate A</span>
-              <input
-                type="text"
-                value={nameA}
-                onChange={(e) => setNameA(e.target.value)}
-                className="bg-transparent text-sm font-semibold text-white border-b border-transparent focus:border-cyan-500 outline-none w-44"
-                placeholder="App Icon A name"
-              />
-            </div>
-          </div>
-          <button
-            onClick={() => fileInputRefA.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+      {/* The Central Arena: Icon A | The Fly | Icon B */}
+      <div className="w-full relative p-6 sm:p-8 rounded-3xl bg-slate-900/40 border border-slate-800/80 shadow-2xl backdrop-blur-xl flex flex-col items-center gap-6">
+        
+        {/* Arena Grid */}
+        <div className="w-full grid grid-cols-1 md:grid-cols-3 items-center gap-6">
+          
+          {/* Candidate A Card */}
+          <div
+            onMouseEnter={() => setHoveredSide('A')}
+            onMouseLeave={() => setHoveredSide(null)}
+            className={`relative flex flex-col items-center p-5 rounded-2xl border transition-all ${
+              result?.winner === 'A'
+                ? 'bg-cyan-950/30 border-cyan-500/80 shadow-[0_0_25px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500'
+                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+            }`}
           >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload A</span>
-          </button>
-          <input
-            ref={fileInputRefA}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => handleFileUpload(e, 'A')}
-          />
-        </div>
-
-        {/* Upload Box B */}
-        <div className="p-4 rounded-2xl bg-slate-900/50 border border-slate-800 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={iconBUrl}
-              alt="Icon B"
-              className="w-14 h-14 rounded-2xl border border-slate-700 shadow-md object-contain bg-slate-950"
-            />
-            <div className="flex flex-col">
-              <span className="text-[10px] font-mono text-purple-400 font-bold uppercase">Candidate B</span>
-              <input
-                type="text"
-                value={nameB}
-                onChange={(e) => setNameB(e.target.value)}
-                className="bg-transparent text-sm font-semibold text-white border-b border-transparent focus:border-purple-500 outline-none w-44"
-                placeholder="App Icon B name"
-              />
-            </div>
-          </div>
-          <button
-            onClick={() => fileInputRefB.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload B</span>
-          </button>
-          <input
-            ref={fileInputRefB}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => handleFileUpload(e, 'B')}
-          />
-        </div>
-      </section>
-
-      {/* Main Execution CTA */}
-      <section className="w-full flex flex-col items-center gap-3">
-        <button
-          onClick={runSimulation}
-          disabled={isSimulating}
-          className="relative group px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 via-sky-400 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-slate-950 font-black text-base tracking-wide uppercase shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:shadow-[0_0_40px_rgba(6,182,212,0.6)] transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 flex items-center gap-3"
-        >
-          {isSimulating ? (
-            <>
-              <RotateCcw className="w-5 h-5 animate-spin" />
-              <span>Simulating 165k Neurons...</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-5 h-5 fill-current" />
-              <span>Run Drosophila Connectome A/B Test</span>
-            </>
-          )}
-        </button>
-
-        {/* Live Simulation Progress HUD */}
-        {isSimulating && (
-          <div className="w-full max-w-md flex flex-col gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-cyan-500/30 shadow-lg animate-in fade-in">
-            <div className="flex items-center justify-between text-[11px] font-mono text-cyan-300">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                <span>{simPhase}</span>
+            {result?.winner === 'A' && (
+              <span className="absolute -top-3 px-3 py-0.5 rounded-full bg-cyan-500 text-slate-950 font-bold text-[10px] tracking-wider uppercase shadow-md flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                <span>FLY&apos;S CHOICE</span>
               </span>
-              <span>{simProgress}%</span>
-            </div>
-            <div className="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-400 to-purple-500 transition-all duration-300"
-                style={{ width: `${simProgress}%` }}
+            )}
+
+            <div className="relative group cursor-pointer mb-3" onClick={() => fileInputRefA.current?.click()}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={iconAUrl}
+                alt={nameA}
+                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-contain bg-slate-900 shadow-xl border border-slate-700/80 transition-transform group-hover:scale-105"
               />
+              <div className="absolute inset-0 rounded-3xl bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-xs font-semibold gap-1">
+                <Upload className="w-4 h-4" />
+                <span>Change</span>
+              </div>
             </div>
+
+            <input
+              type="text"
+              value={nameA}
+              onChange={(e) => setNameA(e.target.value)}
+              className="bg-transparent text-sm font-bold text-center text-white border-b border-transparent hover:border-slate-700 focus:border-cyan-500 outline-none w-full max-w-[180px] truncate"
+              placeholder="Candidate A Name"
+            />
+            <span className="text-[10px] font-mono text-cyan-400 mt-1">CANDIDATE A</span>
+
+            <input
+              ref={fileInputRefA}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, 'A')}
+            />
           </div>
-        )}
-      </section>
 
-      {/* Interactive Tabs: Compound Eye, 3D Brain, Spike Oscilloscope */}
-      <section className="w-full flex flex-col gap-4">
-        <div className="flex items-center justify-center gap-2 border-b border-slate-800 pb-2">
-          <button
-            onClick={() => setActiveTab('eye')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeTab === 'eye'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Eye className="w-4 h-4" />
-            <span>Compound Eye Vision</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('brain')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeTab === 'brain'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Cpu className="w-4 h-4" />
-            <span>3D Drosophila Brain</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('raster')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-              activeTab === 'raster'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span>Spike Raster Oscilloscope</span>
-          </button>
-        </div>
-
-        {/* Tab Viewport */}
-        <div className="w-full">
-          {activeTab === 'eye' && (
-            <CompoundEyeViewer
-              iconAUrl={iconAUrl}
-              iconBUrl={iconBUrl}
-              nameA={nameA}
-              nameB={nameB}
-              visionMode={visionMode}
-              onModeChange={setVisionMode}
+          {/* Center: The Actual Drosophila Fruit Fly */}
+          <div className="flex flex-col items-center justify-center py-2">
+            <DrosophilaFly
+              isDeciding={isSimulating}
               winner={result?.winner}
+              hoveredSide={hoveredSide}
             />
-          )}
+            <span className="text-[10px] font-mono text-slate-500 mt-2 text-center">
+              Drosophila melanogaster (Adult Male)
+            </span>
+          </div>
 
-          {activeTab === 'brain' && (
-            <div className="w-full h-[400px] rounded-2xl bg-slate-950/80 border border-slate-800 overflow-hidden shadow-2xl">
-              <Brain3D
-                isSimulating={isSimulating}
-                winner={result?.winner}
+          {/* Candidate B Card */}
+          <div
+            onMouseEnter={() => setHoveredSide('B')}
+            onMouseLeave={() => setHoveredSide(null)}
+            className={`relative flex flex-col items-center p-5 rounded-2xl border transition-all ${
+              result?.winner === 'B'
+                ? 'bg-purple-950/30 border-purple-500/80 shadow-[0_0_25px_rgba(168,85,247,0.25)] ring-1 ring-purple-500'
+                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            {result?.winner === 'B' && (
+              <span className="absolute -top-3 px-3 py-0.5 rounded-full bg-purple-500 text-slate-950 font-bold text-[10px] tracking-wider uppercase shadow-md flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                <span>FLY&apos;S CHOICE</span>
+              </span>
+            )}
+
+            <div className="relative group cursor-pointer mb-3" onClick={() => fileInputRefB.current?.click()}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={iconBUrl}
+                alt={nameB}
+                className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl object-contain bg-slate-900 shadow-xl border border-slate-700/80 transition-transform group-hover:scale-105"
               />
+              <div className="absolute inset-0 rounded-3xl bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity text-white text-xs font-semibold gap-1">
+                <Upload className="w-4 h-4" />
+                <span>Change</span>
+              </div>
             </div>
-          )}
 
-          {activeTab === 'raster' && (
-            <SpikeRasterPlot
-              isSimulating={isSimulating}
-              metricsA={result?.metricsA}
-              metricsB={result?.metricsB}
+            <input
+              type="text"
+              value={nameB}
+              onChange={(e) => setNameB(e.target.value)}
+              className="bg-transparent text-sm font-bold text-center text-white border-b border-transparent hover:border-slate-700 focus:border-purple-500 outline-none w-full max-w-[180px] truncate"
+              placeholder="Candidate B Name"
             />
+            <span className="text-[10px] font-mono text-purple-400 mt-1">CANDIDATE B</span>
+
+            <input
+              ref={fileInputRefB}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e, 'B')}
+            />
+          </div>
+        </div>
+
+        {/* Big Action CTA */}
+        <div className="flex flex-col items-center gap-2 pt-2">
+          <button
+            onClick={runSimulation}
+            disabled={isSimulating}
+            className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-400 to-purple-500 hover:from-cyan-300 hover:to-purple-400 text-slate-950 font-black text-sm sm:text-base tracking-wide uppercase shadow-[0_0_25px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_rgba(6,182,212,0.6)] transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 flex items-center gap-2.5"
+          >
+            {isSimulating ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                <span>The Fly is Deciding...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 fill-current" />
+                <span>Let the Fly Decide</span>
+              </>
+            )}
+          </button>
+          {isSimulating && (
+            <span className="text-xs font-mono text-cyan-300 animate-pulse">
+              {simPhase}
+            </span>
           )}
         </div>
-      </section>
+      </div>
 
-      {/* Official Biological Certificate & Export */}
-      {result && (
-        <section className="w-full pt-4">
+      {/* Winner Summary Card (Only shown when not simulating and result exists) */}
+      {result && !isSimulating && (
+        <div className="w-full flex flex-col gap-6 animate-in fade-in duration-500">
           <OfficialCertificate
             result={result}
             nameA={nameA}
@@ -400,41 +334,90 @@ export default function Home() {
             iconAUrl={iconAUrl}
             iconBUrl={iconBUrl}
           />
-        </section>
+        </div>
       )}
 
-      {/* Educational & Scientific Explainers */}
-      <section className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 pt-8 border-t border-slate-800">
-        <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2">
-          <div className="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-sm">
-            <Eye className="w-4 h-4" />
-          </div>
-          <h3 className="text-sm font-bold text-white">800 Ommatidia Facets</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Drosophila compound eyes do not see high-resolution text. They rely on hexagonal refractive units optimized for edge transitions, high contrast, and rapid movement detection.
-          </p>
-        </div>
+      {/* Optional Expandable Neuroscience Inspector */}
+      <div className="w-full flex flex-col items-center gap-3 pt-2">
+        <button
+          onClick={() => setShowInspector(!showInspector)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-slate-200 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 transition-all"
+        >
+          <Cpu className="w-3.5 h-3.5 text-cyan-400" />
+          <span>{showInspector ? 'Hide Neural Diagnostics' : 'Inspect Fly Vision (800 Facets & 3D Brain)'}</span>
+          {showInspector ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
 
-        <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2">
-          <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-sm">
-            <Zap className="w-4 h-4" />
-          </div>
-          <h3 className="text-sm font-bold text-white">Lamina L1/L2 Edge Detectors</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Monopolar cells in the Lamina act as biological spatial high-pass filters. Icons with crisp silhouette separation trigger strong action potentials, dominating App Store scroll attention.
-          </p>
-        </div>
+        {showInspector && (
+          <div className="w-full p-5 rounded-2xl bg-slate-950/90 border border-slate-800/80 shadow-inner flex flex-col gap-4 animate-in slide-in-from-top-4 duration-300">
+            {/* Mini Tabs */}
+            <div className="flex items-center justify-center gap-2 border-b border-slate-800 pb-3">
+              <button
+                onClick={() => setInspectorTab('eye')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                  inspectorTab === 'eye'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Compound Eye View</span>
+              </button>
 
-        <div className="p-5 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2">
-          <div className="w-8 h-8 rounded-lg bg-pink-500/10 text-pink-400 flex items-center justify-center font-bold text-sm">
-            <Sparkles className="w-4 h-4" />
+              <button
+                onClick={() => setInspectorTab('brain')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                  inspectorTab === 'brain'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>3D Brain Connectome</span>
+              </button>
+
+              <button
+                onClick={() => setInspectorTab('spikes')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                  inspectorTab === 'spikes'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Sparkle className="w-3.5 h-3.5" />
+                <span>Spike Oscilloscope</span>
+              </button>
+            </div>
+
+            {/* Inspector Content */}
+            {inspectorTab === 'eye' && (
+              <CompoundEyeViewer
+                iconAUrl={iconAUrl}
+                iconBUrl={iconBUrl}
+                nameA={nameA}
+                nameB={nameB}
+                visionMode={visionMode}
+                onModeChange={setVisionMode}
+                winner={result?.winner}
+              />
+            )}
+
+            {inspectorTab === 'brain' && (
+              <div className="w-full h-[320px] rounded-xl bg-slate-950 border border-slate-800 overflow-hidden">
+                <Brain3D isSimulating={isSimulating} winner={result?.winner} />
+              </div>
+            )}
+
+            {inspectorTab === 'spikes' && (
+              <SpikeRasterPlot
+                isSimulating={isSimulating}
+                metricsA={result?.metricsA}
+                metricsB={result?.metricsB}
+              />
+            )}
           </div>
-          <h3 className="text-sm font-bold text-white">Mushroom Body Dopamine</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Associative valence is encoded in the fly&apos;s Kenyon cells. Dopaminergic neurons reinforce stimuli that simulate ripe nutrient sources, while avoidance circuits steer clear of muddy predators.
-          </p>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   );
 }
