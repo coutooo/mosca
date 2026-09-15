@@ -5,103 +5,138 @@ import * as THREE from 'three';
 
 interface Brain3DProps {
   isSimulating: boolean;
+  simPhase?: string;
   winner?: 'A' | 'B' | 'TIE' | null;
-  activeSide?: 'A' | 'B' | 'BOTH';
+  hoveredSide?: 'A' | 'B' | null;
+  feedbackEffect?: 'sugar' | 'shock' | null;
+  height?: number;
 }
 
-export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSide = 'BOTH' }) => {
+export const Brain3D: React.FC<Brain3DProps> = ({
+  isSimulating,
+  simPhase,
+  winner,
+  hoveredSide,
+  feedbackEffect,
+  height = 260,
+}) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const stateRef = useRef({
+    isSimulating,
+    winner,
+    hoveredSide,
+    feedbackEffect,
+  });
+
+  // Keep stateRef up to date without triggering Three.js rebuilds
+  useEffect(() => {
+    stateRef.current = {
+      isSimulating,
+      winner,
+      hoveredSide,
+      feedbackEffect,
+    };
+  }, [isSimulating, winner, hoveredSide, feedbackEffect]);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
-    const width = mount.clientWidth || 400;
-    const height = mount.clientHeight || 320;
+    const width = mount.clientWidth || 340;
+    const h = height;
 
     // Scene, Camera, Renderer
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    camera.position.set(0, 5, 28);
+    const camera = new THREE.PerspectiveCamera(42, width / h, 0.1, 1000);
+    camera.position.set(0, 3, 24);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
+    renderer.setSize(width, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    // Group to hold the whole Drosophila brain
     const brainGroup = new THREE.Group();
     scene.add(brainGroup);
 
-    // Generate anatomical clusters:
-    // Left Optic Lobe (medulla/lobula), Right Optic Lobe, Central Brain, Mushroom Body, Central Complex
-    const neuronCount = 1800;
+    // -------------------------------------------------------------
+    // Anatomical Drosophila Connectome Clusters (165,122 modeled neurons)
+    // -------------------------------------------------------------
+    const neuronCount = 2200;
     const positions = new Float32Array(neuronCount * 3);
     const colors = new Float32Array(neuronCount * 3);
-    const originalColors = new Float32Array(neuronCount * 3);
-    const neuronClusters: string[] = [];
+    const baseColors = new Float32Array(neuronCount * 3);
+    const clusterTypes: ('opticL' | 'opticR' | 'central' | 'mushroom' | 'centralComplex' | 'giantFiber')[] = [];
 
-    const colorCentral = new THREE.Color('#38bdf8'); // cyan
-    const colorOpticL = new THREE.Color('#818cf8');  // indigo
-    const colorOpticR = new THREE.Color('#a855f7');  // purple
-    const colorMushroom = new THREE.Color('#ec4899'); // hot pink / dopamine
-    const colorCentralComplex = new THREE.Color('#10b981'); // emerald green
+    // Distinct anatomical color palette
+    const colorOpticL = new THREE.Color('#38bdf8');       // Cyan - Left Optic Lobe (receives Candidate A)
+    const colorOpticR = new THREE.Color('#c084fc');       // Purple - Right Optic Lobe (receives Candidate B)
+    const colorCentral = new THREE.Color('#64748b');      // Slate blue - Central protocerebrum
+    const colorMushroom = new THREE.Color('#f43f5e');     // Pink/Red - Mushroom Body (Dopamine & Learning)
+    const colorCentralComplex = new THREE.Color('#10b981'); // Emerald - Central Complex (Navigation & Saccade)
+    const colorGiantFiber = new THREE.Color('#fbbf24');   // Amber/Gold - Giant Fiber (Escape circuit)
 
     let pIdx = 0;
     for (let i = 0; i < neuronCount; i++) {
       let x = 0, y = 0, z = 0;
-      let cluster = 'central';
+      let cluster: 'opticL' | 'opticR' | 'central' | 'mushroom' | 'centralComplex' | 'giantFiber' = 'central';
       let c = colorCentral;
 
       const r = Math.random();
       if (r < 0.28) {
-        // Left Optic Lobe (compound eye & medulla)
+        // 1. Left Optic Lobe (Medulla, Lobula, Photoreceptors) -> Pointing towards Candidate A (left)
         cluster = 'opticL';
         c = colorOpticL;
         const u = Math.random() * Math.PI * 2;
         const v = (Math.random() - 0.5) * Math.PI;
-        const rad = 3.5 + Math.random() * 1.5;
-        x = -7.5 + rad * Math.cos(v) * Math.cos(u) * 0.8;
-        y = rad * Math.sin(v) * 1.4;
+        const rad = 3.2 + Math.random() * 1.6;
+        x = -6.8 + rad * Math.cos(v) * Math.cos(u) * 0.9;
+        y = rad * Math.sin(v) * 1.35;
         z = rad * Math.cos(v) * Math.sin(u) * 0.9;
       } else if (r < 0.56) {
-        // Right Optic Lobe
+        // 2. Right Optic Lobe -> Pointing towards Candidate B (right)
         cluster = 'opticR';
         c = colorOpticR;
         const u = Math.random() * Math.PI * 2;
         const v = (Math.random() - 0.5) * Math.PI;
-        const rad = 3.5 + Math.random() * 1.5;
-        x = 7.5 + rad * Math.cos(v) * Math.cos(u) * 0.8;
-        y = rad * Math.sin(v) * 1.4;
+        const rad = 3.2 + Math.random() * 1.6;
+        x = 6.8 + rad * Math.cos(v) * Math.cos(u) * 0.9;
+        y = rad * Math.sin(v) * 1.35;
         z = rad * Math.cos(v) * Math.sin(u) * 0.9;
-      } else if (r < 0.76) {
-        // Central Brain Protocerebrum
+      } else if (r < 0.73) {
+        // 3. Central Protocerebrum (Brain Core)
         cluster = 'central';
         c = colorCentral;
         const u = Math.random() * Math.PI * 2;
         const v = (Math.random() - 0.5) * Math.PI;
-        const rad = 4.5 + Math.random() * 1.2;
-        x = rad * Math.cos(v) * Math.cos(u) * 1.1;
-        y = rad * Math.sin(v) * 1.1;
-        z = rad * Math.cos(v) * Math.sin(u) * 0.9;
-      } else if (r < 0.9) {
-        // Mushroom Body (Caleyx, Peduncle & Lobes) - bilateral lobes
+        const rad = 3.8 + Math.random() * 1.2;
+        x = rad * Math.cos(v) * Math.cos(u) * 1.05;
+        y = rad * Math.sin(v) * 1.05;
+        z = rad * Math.cos(v) * Math.sin(u) * 0.85;
+      } else if (r < 0.87) {
+        // 4. Mushroom Body (Kenyon cells & Dopaminergic neurons)
         cluster = 'mushroom';
         c = colorMushroom;
         const side = Math.random() > 0.5 ? 1 : -1;
         const t = Math.random();
-        x = side * (1.5 + t * 2.8 + (Math.random() - 0.5) * 0.8);
-        y = 1.0 + Math.sin(t * Math.PI) * 2.8 + (Math.random() - 0.5) * 0.8;
-        z = 1.2 + (Math.random() - 0.5) * 1.5;
-      } else {
-        // Central Complex (Ellipsoid body & Fan-shaped body)
+        x = side * (1.2 + t * 2.2 + (Math.random() - 0.5) * 0.7);
+        y = 1.0 + Math.sin(t * Math.PI) * 2.4 + (Math.random() - 0.5) * 0.6;
+        z = 1.0 + (Math.random() - 0.5) * 1.2;
+      } else if (r < 0.95) {
+        // 5. Central Complex (Ellipsoid body / Gaze Direction)
         cluster = 'centralComplex';
         c = colorCentralComplex;
         const ang = Math.random() * Math.PI * 2;
-        const rad = 1.5 + Math.random() * 0.8;
+        const rad = 1.4 + Math.random() * 0.7;
         x = rad * Math.cos(ang);
-        y = -0.8 + Math.random() * 1.5;
+        y = -0.5 + Math.random() * 1.4;
         z = rad * Math.sin(ang) * 0.6;
+      } else {
+        // 6. Giant Fiber Neurons (Escape reflex descending pathway)
+        cluster = 'giantFiber';
+        c = colorGiantFiber;
+        x = (Math.random() - 0.5) * 1.2;
+        y = -1.0 - Math.random() * 4.5;
+        z = -0.5 + (Math.random() - 0.5) * 1.0;
       }
 
       positions[pIdx] = x;
@@ -112,11 +147,11 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
       colors[pIdx + 1] = c.g;
       colors[pIdx + 2] = c.b;
 
-      originalColors[pIdx] = c.r;
-      originalColors[pIdx + 1] = c.g;
-      originalColors[pIdx + 2] = c.b;
+      baseColors[pIdx] = c.r;
+      baseColors[pIdx + 1] = c.g;
+      baseColors[pIdx + 2] = c.b;
 
-      neuronClusters.push(cluster);
+      clusterTypes.push(cluster);
       pIdx += 3;
     }
 
@@ -124,22 +159,22 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
     neuronGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     neuronGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    // Particle sprite texture
+    // Particle sprite
     const canvasDot = document.createElement('canvas');
     canvasDot.width = 32;
     canvasDot.height = 32;
     const ctxDot = canvasDot.getContext('2d')!;
     const grad = ctxDot.createRadialGradient(16, 16, 2, 16, 16, 15);
     grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    grad.addColorStop(0.3, 'rgba(200, 240, 255, 0.9)');
-    grad.addColorStop(0.8, 'rgba(56, 189, 248, 0.2)');
+    grad.addColorStop(0.35, 'rgba(200, 240, 255, 0.95)');
+    grad.addColorStop(0.8, 'rgba(56, 189, 248, 0.3)');
     grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctxDot.fillStyle = grad;
     ctxDot.fillRect(0, 0, 32, 32);
     const texture = new THREE.CanvasTexture(canvasDot);
 
     const neuronMaterial = new THREE.PointsMaterial({
-      size: 0.75,
+      size: 0.85,
       map: texture,
       transparent: true,
       vertexColors: true,
@@ -150,9 +185,9 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
     const neuronParticles = new THREE.Points(neuronGeometry, neuronMaterial);
     brainGroup.add(neuronParticles);
 
-    // Synaptic connections (Lines between nearby neurons)
+    // Synaptic connections (Lines between adjacent neurons)
     const linePositions: number[] = [];
-    for (let i = 0; i < 400; i++) {
+    for (let i = 0; i < 550; i++) {
       const idxA = Math.floor(Math.random() * neuronCount);
       const idxB = Math.floor(Math.random() * neuronCount);
 
@@ -165,7 +200,7 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
       const bz = positions[idxB * 3 + 2];
 
       const dist = Math.hypot(ax - bx, ay - by, az - bz);
-      if (dist < 3.2 && dist > 0.4) {
+      if (dist < 2.9 && dist > 0.4) {
         linePositions.push(ax, ay, az, bx, by, bz);
       }
     }
@@ -175,13 +210,13 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
     const lineMaterial = new THREE.LineBasicMaterial({
       color: 0x38bdf8,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.28,
       blending: THREE.AdditiveBlending,
     });
     const synapticLines = new THREE.LineSegments(lineGeometry, lineMaterial);
     brainGroup.add(synapticLines);
 
-    // Mouse drag interaction
+    // Interaction controls
     let isDragging = false;
     let prevMouseX = 0;
     let prevMouseY = 0;
@@ -210,52 +245,73 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
 
-    // Animation loop
+    // Animation Loop
     let animationFrameId: number;
-    let clock = new THREE.Clock();
+    const clock = new THREE.Clock();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       const elapsedTime = clock.getElapsedTime();
+      const { isSimulating, winner, hoveredSide, feedbackEffect } = stateRef.current;
 
-      // Gentle continuous rotation if not dragging
+      // Gentle auto-rotation
       if (!isDragging) {
-        brainGroup.rotation.y += 0.004;
+        brainGroup.rotation.y += 0.003;
       }
 
-      // Live synaptic pulsing when simulating or displaying winner
       const colorAttr = neuronGeometry.attributes.color as THREE.BufferAttribute;
       const colorArray = colorAttr.array as Float32Array;
 
+      // Pulse neural areas based on active stimuli
       for (let i = 0; i < neuronCount; i++) {
-        const cluster = neuronClusters[i];
-        const baseR = originalColors[i * 3];
-        const baseG = originalColors[i * 3 + 1];
-        const baseB = originalColors[i * 3 + 2];
+        const cluster = clusterTypes[i];
+        const baseR = baseColors[i * 3];
+        const baseG = baseColors[i * 3 + 1];
+        const baseB = baseColors[i * 3 + 2];
 
-        let pulse = 1.0;
+        let intensity = 1.0;
 
         if (isSimulating) {
-          // Rapid wave of firing across optic lobes and central complex
-          const wave = Math.sin(elapsedTime * 9 + positions[i * 3] * 0.5 + positions[i * 3 + 1]);
-          if (wave > 0.6) {
-            pulse = 2.4;
+          // Rapid firing of both Optic Lobes and Mushroom Body
+          const wave = Math.sin(elapsedTime * 14 + positions[i * 3] * 0.8);
+          if (wave > 0.4) {
+            intensity = 2.8;
           }
-        } else if (winner) {
-          // Highlight winning hemisphere or dopamine mushroom body
-          if (winner === 'A' && (cluster === 'opticL' || cluster === 'mushroom')) {
-            pulse = 1.6 + Math.sin(elapsedTime * 5 + i) * 0.5;
-          } else if (winner === 'B' && (cluster === 'opticR' || cluster === 'mushroom')) {
-            pulse = 1.6 + Math.sin(elapsedTime * 5 + i) * 0.5;
+          if (cluster === 'mushroom') {
+            intensity = 2.2 + Math.sin(elapsedTime * 10 + i) * 0.8;
+          }
+        } else if (feedbackEffect === 'sugar') {
+          // Sugar reward: Mushroom Body explodes with hot pink & gold dopamine
+          if (cluster === 'mushroom') {
+            intensity = 3.5 + Math.sin(elapsedTime * 16 + i) * 1.5;
+          }
+        } else if (feedbackEffect === 'shock') {
+          // Electric shock: Giant fiber & central complex flash with high voltage
+          if (cluster === 'giantFiber' || cluster === 'centralComplex') {
+            intensity = 4.0 + (Math.random() > 0.5 ? 2.0 : 0.0);
+          }
+        } else if (winner === 'A' || hoveredSide === 'A') {
+          // Left Optic Lobe (Candidate A) is actively stimulated
+          if (cluster === 'opticL') {
+            intensity = 2.4 + Math.sin(elapsedTime * 8 + i * 0.2) * 0.8;
+          } else if (cluster === 'mushroom' && winner === 'A') {
+            intensity = 1.8 + Math.sin(elapsedTime * 4 + i * 0.1) * 0.5;
+          }
+        } else if (winner === 'B' || hoveredSide === 'B') {
+          // Right Optic Lobe (Candidate B) is actively stimulated
+          if (cluster === 'opticR') {
+            intensity = 2.4 + Math.sin(elapsedTime * 8 + i * 0.2) * 0.8;
+          } else if (cluster === 'mushroom' && winner === 'B') {
+            intensity = 1.8 + Math.sin(elapsedTime * 4 + i * 0.1) * 0.5;
           }
         } else {
-          // Subtle resting membrane potential oscillation (alpha rhythm)
-          pulse = 0.85 + Math.sin(elapsedTime * 2 + i * 0.1) * 0.25;
+          // Baseline resting potential oscillation (alpha waves)
+          intensity = 0.85 + Math.sin(elapsedTime * 2.5 + i * 0.15) * 0.25;
         }
 
-        colorArray[i * 3] = Math.min(1.0, baseR * pulse);
-        colorArray[i * 3 + 1] = Math.min(1.0, baseG * pulse);
-        colorArray[i * 3 + 2] = Math.min(1.0, baseB * pulse);
+        colorArray[i * 3] = Math.min(1.0, baseR * intensity);
+        colorArray[i * 3 + 1] = Math.min(1.0, baseG * intensity);
+        colorArray[i * 3 + 2] = Math.min(1.0, baseB * intensity);
       }
 
       colorAttr.needsUpdate = true;
@@ -267,10 +323,9 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
     const handleResize = () => {
       if (!mount) return;
       const newW = mount.clientWidth;
-      const newH = mount.clientHeight;
-      camera.aspect = newW / newH;
+      camera.aspect = newW / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(newW, newH);
+      renderer.setSize(newW, h);
     };
 
     window.addEventListener('resize', handleResize);
@@ -286,23 +341,49 @@ export const Brain3D: React.FC<Brain3DProps> = ({ isSimulating, winner, activeSi
       }
       renderer.dispose();
     };
-  }, [isSimulating, winner, activeSide]);
+  }, [height]);
 
   return (
-    <div className="relative w-full h-full min-h-[280px] flex items-center justify-center cursor-grab active:cursor-grabbing select-none">
-      <div ref={mountRef} className="w-full h-full" />
-      
-      {/* HUD Overlay */}
-      <div className="absolute top-2 left-2 pointer-events-none flex flex-col gap-1 text-[10px] font-mono text-cyan-400/80 bg-slate-950/70 backdrop-blur-md px-2.5 py-1.5 rounded-md border border-cyan-500/20">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          <span>DROSOPHILA CNS 3D MAP</span>
-        </div>
-        <div className="text-slate-400">165,122 NEURONS • 10M+ SYNAPSES</div>
-      </div>
+    <div className="relative w-full h-full flex flex-col items-center justify-center select-none">
+      {/* 3D Canvas Mount */}
+      <div
+        ref={mountRef}
+        className="w-full cursor-grab active:cursor-grabbing"
+        style={{ height: `${height}px` }}
+      />
 
-      <div className="absolute bottom-2 right-2 pointer-events-none text-[10px] font-mono text-slate-500 bg-slate-950/60 px-2 py-1 rounded border border-slate-800">
-        Click & drag to rotate
+      {/* Floating Anatomical Activity HUD */}
+      <div className="w-full flex items-center justify-between px-2 pt-1 font-mono text-[10px]">
+        {/* Left Optic Lobe Indicator */}
+        <div className={`flex items-center gap-1.5 transition-all ${
+          winner === 'A' || hoveredSide === 'A' || isSimulating ? 'text-cyan-400 font-bold scale-105' : 'text-slate-500'
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            winner === 'A' || hoveredSide === 'A' || isSimulating ? 'bg-cyan-400 animate-ping' : 'bg-slate-600'
+          }`} />
+          <span>Left Optic Lobe (A)</span>
+        </div>
+
+        {/* Central Complex & Mushroom Body */}
+        <div className="flex items-center gap-2">
+          <span className={`px-2 py-0.5 rounded-full text-[9px] border transition-all ${
+            feedbackEffect === 'sugar' || (winner && !isSimulating)
+              ? 'bg-pink-500/20 text-pink-300 border-pink-500/40 shadow-[0_0_10px_rgba(244,63,94,0.4)] font-bold'
+              : 'bg-slate-900/60 text-slate-400 border-slate-800'
+          }`}>
+            Mushroom Body {feedbackEffect === 'sugar' ? '🍬 +DANs' : feedbackEffect === 'shock' ? '⚡ Aversion' : ''}
+          </span>
+        </div>
+
+        {/* Right Optic Lobe Indicator */}
+        <div className={`flex items-center gap-1.5 transition-all ${
+          winner === 'B' || hoveredSide === 'B' || isSimulating ? 'text-purple-400 font-bold scale-105' : 'text-slate-500'
+        }`}>
+          <span>Right Optic Lobe (B)</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            winner === 'B' || hoveredSide === 'B' || isSimulating ? 'bg-purple-400 animate-ping' : 'bg-slate-600'
+          }`} />
+        </div>
       </div>
     </div>
   );

@@ -292,16 +292,60 @@ export default function Home() {
             />
           </div>
 
-          {/* Center: The Actual Drosophila Fruit Fly with Brain View Toggle */}
-          <div className="flex flex-col items-center justify-center py-2">
-            <DrosophilaFly
-              isDeciding={isSimulating}
-              winner={result?.winner}
-              hoveredSide={hoveredSide}
-              viewMode={flyViewMode}
-              onToggleViewMode={setFlyViewMode}
-              feedbackEffect={feedbackEffect}
-            />
+          {/* Center: The Actual 3D Drosophila Connectome Brain & Fly */}
+          <div className="flex flex-col items-center justify-center py-2 w-full max-w-[320px]">
+            {/* Toggle: 3D Connectome vs Insect Body */}
+            <div className="flex items-center gap-1 p-1 bg-slate-950/80 backdrop-blur-md rounded-full border border-slate-800 mb-2 shadow-inner z-10">
+              <button
+                onClick={() => setFlyViewMode('xray')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
+                  flyViewMode === 'xray'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>3D Connectome Brain</span>
+              </button>
+              <button
+                onClick={() => setFlyViewMode('insect')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
+                  flyViewMode === 'insect'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Insect Fly</span>
+              </button>
+            </div>
+
+            {flyViewMode === 'xray' ? (
+              <div className="w-full flex flex-col items-center rounded-2xl bg-slate-950/70 border border-slate-800/80 p-2 shadow-inner">
+                <Brain3D
+                  isSimulating={isSimulating}
+                  simPhase={simPhase}
+                  winner={result?.winner}
+                  hoveredSide={hoveredSide}
+                  feedbackEffect={feedbackEffect}
+                  height={220}
+                />
+              </div>
+            ) : (
+              <DrosophilaFly
+                isDeciding={isSimulating}
+                winner={result?.winner}
+                hoveredSide={hoveredSide}
+                viewMode={flyViewMode}
+                onToggleViewMode={setFlyViewMode}
+                feedbackEffect={feedbackEffect}
+              />
+            )}
+
+            <div className="mt-2 text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+              <span>165,122 Neurons • Janelia Male CNS</span>
+            </div>
           </div>
 
           {/* Candidate B Card */}
