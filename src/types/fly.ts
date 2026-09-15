@@ -33,4 +33,18 @@ export interface PresetPair {
   iconBUrl: string;
 }
 
+export interface FlyMemory {
+  testsCount: number;
+  rewardsCount: number;
+  shocksCount: number;
+  totalSynapticUpdates: number;
+  learnedWeights: {
+    contrastPreference: number; // -1 to 1 (Lamina L1/L2 tuning)
+    phototaxisPreference: number; // -1 to 1 (Luminance gradient)
+    uvBluePreference: number; // -1 to 1 (Rh1/Rh3 spectral tuning)
+    giantFiberSensitivity: number; // -1 to 1 (aversion threshold)
+  };
+}
+
 export type VisionMode = 'normal' | 'ommatidia' | 'spectral' | 'saliency';
+export type FlyViewMode = 'insect' | 'xray';

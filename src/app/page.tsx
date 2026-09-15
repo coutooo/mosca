@@ -2,9 +2,17 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { PRESET_PAIRS } from '@/lib/presets';
-import { VisionMode, ComparisonResult } from '@/types/fly';
+import { VisionMode, ComparisonResult, FlyViewMode, FlyMemory } from '@/types/fly';
 import { computeImageMetrics, compareDrosophilaIcons } from '@/lib/visionEngine';
+import {
+  getStoredFlyMemory,
+  saveFlyMemory,
+  resetFlyMemory,
+  applyDopamineFeedback,
+  applyMemoryToMetrics,
+} from '@/lib/flyLearning';
 import { DrosophilaFly } from '@/components/DrosophilaFly';
+import { FlyMemoryHUD } from '@/components/FlyMemoryHUD';
 import { CompoundEyeViewer } from '@/components/CompoundEyeViewer';
 import { Brain3D } from '@/components/Brain3D';
 import { SpikeRasterPlot } from '@/components/SpikeRasterPlot';
@@ -13,13 +21,10 @@ import {
   Upload,
   Play,
   RotateCcw,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   Cpu,
   Eye,
-  Share2,
-  Check,
   ShieldCheck,
   Sparkle,
 } from 'lucide-react';
@@ -37,7 +42,15 @@ export default function Home() {
   const [result, setResult] = useState<ComparisonResult | null>(null);
   const [hoveredSide, setHoveredSide] = useState<'A' | 'B' | null>(null);
 
-  // Expandable nerdy inspector (optional so the UI remains super clean)
+  // View mode: insect exterior vs brain connectome X-Ray
+  const [flyViewMode, setFlyViewMode] = useState<FlyViewMode>('xray'); // default to X-Ray so users immediately see the brain!
+  const [feedbackEffect, setFeedbackEffect] = useState<'sugar' | 'shock' | null>(null);
+
+  // Persistent fly memory & learning state
+  const [flyMemory, setFlyMemory] = useState<FlyMemory>(() => getStoredFlyMemory());
+  const [lastFeedbackMsg, setLastFeedbackMsg] = useState<string | null>(null);
+
+  // Optional expandable neuroscience drawer
   const [showInspector, setShowInspector] = useState(false);
   const [visionMode, setVisionMode] = useState<VisionMode>('ommatidia');
   const [inspectorTab, setInspectorTab] = useState<'eye' | 'brain' | 'spikes'>('eye');
@@ -54,6 +67,7 @@ export default function Home() {
     setIconAUrl(p.iconAUrl);
     setIconBUrl(p.iconBUrl);
     setResult(null);
+    setLastFeedbackMsg(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'A' | 'B') => {
@@ -72,6 +86,7 @@ export default function Home() {
       }
       setSelectedPresetId('custom');
       setResult(null);
+      setLastFeedbackMsg(null);
     };
     reader.readAsDataURL(file);
   };
@@ -79,6 +94,7 @@ export default function Home() {
   const runSimulation = () => {
     setIsSimulating(true);
     setSimPhase('The fly is inspecting Candidate A & B...');
+    setLastFeedbackMsg(null);
 
     const imgA = new Image();
     const imgB = new Image();
@@ -88,12 +104,12 @@ export default function Home() {
     let loaded = 0;
     const onBothLoaded = () => {
       setTimeout(() => {
-        setSimPhase('Stimulating 800 ommatidia facets & optic lobes...');
-      }, 600);
+        setSimPhase('Firing left & right optic lobes (165k neurons)...');
+      }, 500);
 
       setTimeout(() => {
-        setSimPhase('Measuring mushroom body dopamine release...');
-      }, 1200);
+        setSimPhase('Applying learned Mushroom Body synaptic weights...');
+      }, 1100);
 
       setTimeout(() => {
         const cA = document.createElement('canvas');
@@ -108,21 +124,31 @@ export default function Home() {
         const ctxB = cB.getContext('2d')!;
         ctxB.drawImage(imgB, 0, 0, 256, 256);
 
-        const metricsA = computeImageMetrics(cA);
-        const metricsB = computeImageMetrics(cB);
+        // Compute base metrics
+        let metricsA = computeImageMetrics(cA);
+        let metricsB = computeImageMetrics(cB);
+
+        // Modulate with the fly's personal learned taste/memory!
+        metricsA = applyMemoryToMetrics(metricsA, flyMemory);
+        metricsB = applyMemoryToMetrics(metricsB, flyMemory);
 
         const comparison = compareDrosophilaIcons(metricsA, metricsB, nameA, nameB);
         setResult(comparison);
         setIsSimulating(false);
 
-        // Fun celebration confetti
+        // Update test counter in memory
+        const updatedMemory = { ...flyMemory, testsCount: flyMemory.testsCount + 1 };
+        setFlyMemory(updatedMemory);
+        saveFlyMemory(updatedMemory);
+
+        // Confetti celebration
         confetti({
           particleCount: 50,
           spread: 60,
           origin: { y: 0.6 },
           colors: ['#38bdf8', '#a855f7', '#ec4899'],
         });
-      }, 1800);
+      }, 1700);
     };
 
     imgA.onload = () => {
@@ -136,6 +162,36 @@ export default function Home() {
 
     imgA.src = iconAUrl;
     imgB.src = iconBUrl;
+  };
+
+  // Dopamine Feedback (Sugar Reward vs Electric Shock)
+  const handleFeedback = (type: 'sugar' | 'shock') => {
+    if (!result) return;
+    const winningMetrics = result.winner === 'A' ? result.metricsA : result.metricsB;
+    const { memory, message } = applyDopamineFeedback(type, winningMetrics);
+
+    setFlyMemory(memory);
+    setLastFeedbackMsg(message);
+    setFeedbackEffect(type);
+
+    if (type === 'sugar') {
+      confetti({
+        particleCount: 35,
+        spread: 50,
+        origin: { y: 0.5 },
+        colors: ['#ec4899', '#f472b6', '#38bdf8'],
+      });
+    }
+
+    setTimeout(() => {
+      setFeedbackEffect(null);
+    }, 2500);
+  };
+
+  const handleResetMemory = () => {
+    const fresh = resetFlyMemory();
+    setFlyMemory(fresh);
+    setLastFeedbackMsg('🧠 Fly memory reset to naive factory connectome (0 learned associations).');
   };
 
   useEffect(() => {
@@ -157,7 +213,7 @@ export default function Home() {
         </h1>
 
         <p className="text-sm sm:text-base text-slate-400 max-w-lg">
-          Drop two icons. An adult fruit fly evaluates phototaxis, edge contrast, and visual gaze in real time.
+          Drop two icons. A biological fruit fly brain inspects them, learns from your feedback, and picks the winner.
         </p>
       </header>
 
@@ -182,7 +238,7 @@ export default function Home() {
         })}
       </div>
 
-      {/* The Central Arena: Icon A | The Fly | Icon B */}
+      {/* The Central Arena: Icon A | The Fly with Brain View | Icon B */}
       <div className="w-full relative p-6 sm:p-8 rounded-3xl bg-slate-900/40 border border-slate-800/80 shadow-2xl backdrop-blur-xl flex flex-col items-center gap-6">
         
         {/* Arena Grid */}
@@ -236,16 +292,16 @@ export default function Home() {
             />
           </div>
 
-          {/* Center: The Actual Drosophila Fruit Fly */}
+          {/* Center: The Actual Drosophila Fruit Fly with Brain View Toggle */}
           <div className="flex flex-col items-center justify-center py-2">
             <DrosophilaFly
               isDeciding={isSimulating}
               winner={result?.winner}
               hoveredSide={hoveredSide}
+              viewMode={flyViewMode}
+              onToggleViewMode={setFlyViewMode}
+              feedbackEffect={feedbackEffect}
             />
-            <span className="text-[10px] font-mono text-slate-500 mt-2 text-center">
-              Drosophila melanogaster (Adult Male)
-            </span>
           </div>
 
           {/* Candidate B Card */}
@@ -307,7 +363,7 @@ export default function Home() {
             {isSimulating ? (
               <>
                 <RotateCcw className="w-4 h-4 animate-spin" />
-                <span>The Fly is Deciding...</span>
+                <span>The Fly Brain is Deciding...</span>
               </>
             ) : (
               <>
@@ -323,6 +379,15 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Fly Learning & Synaptic Plasticity HUD */}
+      <FlyMemoryHUD
+        memory={flyMemory}
+        onFeedback={handleFeedback}
+        onReset={handleResetMemory}
+        canGiveFeedback={!!result && !isSimulating}
+        lastFeedbackMsg={lastFeedbackMsg}
+      />
 
       {/* Winner Summary Card (Only shown when not simulating and result exists) */}
       {result && !isSimulating && (
@@ -344,7 +409,7 @@ export default function Home() {
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono text-slate-400 hover:text-slate-200 bg-slate-900/60 hover:bg-slate-900 border border-slate-800 transition-all"
         >
           <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-          <span>{showInspector ? 'Hide Neural Diagnostics' : 'Inspect Fly Vision (800 Facets & 3D Brain)'}</span>
+          <span>{showInspector ? 'Hide Full Neural Diagnostics' : 'Inspect Fly Vision (800 Facets & 3D Brain)'}</span>
           {showInspector ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
 
