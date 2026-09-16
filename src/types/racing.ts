@@ -73,13 +73,16 @@ export interface RacingTelemetry {
   painShock: boolean;
 }
 
+export type RaceStatus = 'WAITING' | 'STARTING_LIGHTS' | 'RACING' | 'FINISHED';
+
 export interface RaceEventSchedule {
-  isEventActive: boolean;
+  raceStatus: RaceStatus;
   eventName: string;
   nextEventTime: number; // timestamp
   secondsUntilNextEvent: number;
-  eventLapsRemaining: number;
-  eventWinnerLap: TrackRecord | null;
+  currentLapInRace: number;
+  totalRaceLaps: number;
+  startingLightsCount: number; // 0 to 5
 }
 
 export interface ConnectomeWeights {

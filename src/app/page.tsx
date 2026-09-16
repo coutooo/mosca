@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { RacingTelemetry, TrackRecord } from '@/types/racing';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { RacingTelemetry, TrackRecord, RaceStatus } from '@/types/racing';
 import { RaceTrackCanvas } from '@/components/RaceTrackCanvas';
 import { TrackRecordHUD } from '@/components/TrackRecordHUD';
 import { Brain3D } from '@/components/Brain3D';
-import { formatLapTime } from '@/lib/trackData';
+import { calculateNextRaceCountdown } from '@/lib/raceSchedule';
 import {
   Trophy,
   Share2,
@@ -14,12 +14,62 @@ import {
   Zap,
   Eye,
   Flag,
+  Play,
 } from 'lucide-react';
 
 export default function Home() {
   const [telemetry, setTelemetry] = useState<RacingTelemetry | null>(null);
   const [newRecordAlert, setNewRecordAlert] = useState<TrackRecord | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Scheduled race lifecycle states
+  const [raceStatus, setRaceStatus] = useState<RaceStatus>('WAITING');
+  const [startingLightsCount, setStartingLightsCount] = useState<number>(0);
+  const [secondsUntilNext, setSecondsUntilNext] = useState<number>(180);
+  const [eventName, setEventName] = useState<string>('Monaco Drosophila Grand Prix');
+
+  // Master countdown timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const { secondsUntil, eventName: name } = calculateNextRaceCountdown();
+      setSecondsUntilNext(secondsUntil);
+      setEventName(name);
+
+      // If scheduled time arrives and we are currently waiting -> trigger race!
+      if (secondsUntil <= 1 && raceStatus === 'WAITING') {
+        startRaceSequence();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [raceStatus]);
+
+  // Start Race Sequence (Starting lights 1 -> 2 -> 3 -> 4 -> 5 -> GO!)
+  const startRaceSequence = useCallback(() => {
+    setRaceStatus('STARTING_LIGHTS');
+    setStartingLightsCount(1);
+
+    const intv = setInterval(() => {
+      setStartingLightsCount((prev) => {
+        if (prev >= 5) {
+          clearInterval(intv);
+          setTimeout(() => {
+            setRaceStatus('RACING');
+            setStartingLightsCount(0);
+          }, 600);
+          return 5;
+        }
+        return prev + 1;
+      });
+    }, 550);
+  }, []);
+
+  const handleRaceFinished = useCallback((finalRecord: TrackRecord | null) => {
+    setRaceStatus('FINISHED');
+    setTimeout(() => {
+      setRaceStatus('WAITING');
+    }, 6000);
+  }, []);
 
   const handleTelemetryUpdate = useCallback((t: RacingTelemetry) => {
     setTelemetry(t);
@@ -33,12 +83,12 @@ export default function Home() {
   }, []);
 
   const tweetText = telemetry?.lapRecord
-    ? `The 165,122-neuron Drosophila melanogaster (fruit fly) brain connectome just broke the circuit lap record: ${telemetry.lapRecord.formattedTime} at ${telemetry.lapRecord.topSpeed} cm/s! 🪰🏁
+    ? `The 165,122-neuron Drosophila melanogaster (fruit fly) brain connectome just set an official circuit lap record: ${telemetry.lapRecord.formattedTime} at ${telemetry.lapRecord.topSpeed} cm/s! 🪰🏁
 
-Autonomous racing with zero human inputs. Powered by Janelia biological connectome:
+Runs only during scheduled Grand Prix heats. Powered by Janelia biological connectome:
 
 #DrosophilaGrandPrix #Neuroscience #AutonomousAI #TechTwitter`
-    : `Watching a 165,122-neuron fruit fly learn to race an F1 circuit completely on its own! 🪰🏁`;
+    : `Watching a 165,122-neuron fruit fly compete in scheduled Grand Prix races! 🪰🏁`;
 
   const handleShareTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
@@ -64,12 +114,12 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
                 <span>DROSOPHILA GRAND PRIX</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  AUTONOMOUS CONNECTOME
+                  SCHEDULED RACES
                 </span>
               </h1>
             </div>
             <p className="text-xs text-slate-400 font-mono">
-              The Self-Driving Fruit Fly • 165,122 Neurons • Learning 100% Autonomously
+              The Self-Driving Fruit Fly • 165,122 Neurons • Races on Scheduled Heats
             </p>
           </div>
         </div>
@@ -98,20 +148,26 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
       {/* Main Arena: The Circuit (Left) + The Live 3D Connectome (Right) */}
       <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* Track Canvas Column (2 Columns wide on desktop) */}
+        {/* Track Canvas Column */}
         <div className="w-full lg:col-span-2 flex flex-col gap-3">
           <RaceTrackCanvas
+            raceStatus={raceStatus}
+            startingLightsCount={startingLightsCount}
             onTelemetryUpdate={handleTelemetryUpdate}
             onNewRecord={handleNewRecord}
+            onRaceFinished={handleRaceFinished}
+            totalRaceLaps={2}
           />
 
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-2">
             <span>Circuit Length: 420m • 12 Sector Checkpoints</span>
-            <span className="text-cyan-400">Zero Human Inputs • Real-Time Hebbian Adaptation</span>
+            <span className="text-cyan-400">
+              {raceStatus === 'RACING' ? '● Official Heat In Progress' : 'Grid Idling • Next Heat Scheduled'}
+            </span>
           </div>
         </div>
 
-        {/* 3D Brain Telemetry Column (1 Column wide on desktop) */}
+        {/* 3D Brain Telemetry Column */}
         <div className="w-full flex flex-col gap-4">
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-xl flex flex-col gap-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
@@ -120,18 +176,18 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
                 <span>3D CONNECTOME IN ACTION</span>
               </span>
               <span className="text-[10px] font-mono text-cyan-400">
-                {telemetry?.speed || 0} cm/s
+                {raceStatus === 'RACING' ? `${telemetry?.speed || 0} cm/s` : 'IDLE MEMBRANE'}
               </span>
             </div>
 
             <div className="w-full h-[220px] rounded-xl bg-slate-950/80 border border-slate-800/80 overflow-hidden">
               <Brain3D
-                steeringAngle={telemetry?.steeringAngle || 0}
-                speed={telemetry?.speed || 0}
+                steeringAngle={raceStatus === 'RACING' ? (telemetry?.steeringAngle || 0) : 0}
+                speed={raceStatus === 'RACING' ? (telemetry?.speed || 0) : 0}
                 dopamineSurge={telemetry?.dopamineSurge || false}
                 painShock={telemetry?.painShock || false}
-                leftFlow={telemetry?.leftEyeOpticalFlow || 0.5}
-                rightFlow={telemetry?.rightEyeOpticalFlow || 0.5}
+                leftFlow={raceStatus === 'RACING' ? (telemetry?.leftEyeOpticalFlow || 0.5) : 0.2}
+                rightFlow={raceStatus === 'RACING' ? (telemetry?.rightEyeOpticalFlow || 0.5) : 0.2}
                 height={220}
               />
             </div>
@@ -141,24 +197,24 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
                 <span className="text-slate-400 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${
-                    (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
+                    raceStatus === 'RACING' && (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
                   }`} />
-                  <span>Left Lobula (A. Turn)</span>
+                  <span>Left Lobula (L. Turn)</span>
                 </span>
                 <span className="font-bold text-cyan-400">
-                  {Math.round((telemetry?.leftEyeOpticalFlow || 0.5) * 100)}% Excitatory
+                  {raceStatus === 'RACING' ? `${Math.round((telemetry?.leftEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
                 </span>
               </div>
 
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
                 <span className="text-slate-400 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${
-                    (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
+                    raceStatus === 'RACING' && (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
                   }`} />
-                  <span>Right Lobula (B. Turn)</span>
+                  <span>Right Lobula (R. Turn)</span>
                 </span>
                 <span className="font-bold text-purple-400">
-                  {Math.round((telemetry?.rightEyeOpticalFlow || 0.5) * 100)}% Excitatory
+                  {raceStatus === 'RACING' ? `${Math.round((telemetry?.rightEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
                 </span>
               </div>
 
@@ -170,7 +226,7 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
                   <span>Mushroom Body</span>
                 </span>
                 <span className={`font-bold ${telemetry?.dopamineSurge ? 'text-pink-400 font-black' : 'text-slate-500'}`}>
-                  {telemetry?.dopamineSurge ? '🍬 +DOPAMINE SURGE' : 'Normal Resting'}
+                  {telemetry?.dopamineSurge ? '🍬 +DOPAMINE SURGE' : 'Baseline Plasticity'}
                 </span>
               </div>
             </div>
@@ -178,9 +234,13 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
         </div>
       </div>
 
-      {/* Track Records, Live Delas, and Scheduled Races Board */}
+      {/* Track Records, Live Deltas, and Scheduled Races Board */}
       <div className="w-full">
         <TrackRecordHUD
+          raceStatus={raceStatus}
+          secondsUntilNextEvent={secondsUntilNext}
+          eventName={eventName}
+          onStartRaceNow={startRaceSequence}
           telemetry={telemetry}
           newRecordAlert={newRecordAlert}
         />
@@ -194,7 +254,7 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
             <span>Elementary Motion Detectors (EMD)</span>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            The fly’s ommatidia compound eyes continuously measure optical flow. When a barrier approaches on the left, high-frequency spikes in the left lobula plate trigger rightward counter-steering.
+            The fly’s ommatidia compound eyes measure optical flow. When a barrier approaches on the left, high-frequency spikes in the left lobula plate trigger rightward counter-steering.
           </p>
         </div>
 
@@ -214,7 +274,7 @@ Autonomous racing with zero human inputs. Powered by Janelia biological connecto
             <span>Scheduled Grand Prix Heats</span>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Between races, the fly undergoes continuous autonomous qualifying. Every 15 minutes, official championship lights turn green for a 3-lap Grand Prix heat to shatter the all-time track record.
+            The fly remains parked on the starting line between heats. When the scheduled time arrives (or when triggered manually), the starting lights extinguish and the official 2-lap race begins!
           </p>
         </div>
       </div>
