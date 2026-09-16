@@ -6,6 +6,7 @@ import { RaceTrackCanvas } from '@/components/RaceTrackCanvas';
 import { TrackRecordHUD } from '@/components/TrackRecordHUD';
 import { Brain3D } from '@/components/Brain3D';
 import { calculateNextRaceCountdown } from '@/lib/raceSchedule';
+import { clearStoredRecords } from '@/lib/racingConnectome';
 import {
   Trophy,
   Share2,
@@ -84,6 +85,19 @@ export default function Home() {
     setTimeout(() => {
       setNewRecordAlert(null);
     }, 6000);
+  }, []);
+
+  const handleClearHistory = useCallback(() => {
+    clearStoredRecords();
+    setTelemetry((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        lapRecord: null,
+        recentRecords: [],
+      };
+    });
+    setNewRecordAlert(null);
   }, []);
 
   const tweetText = telemetry?.lapRecord
@@ -289,6 +303,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           newRecordAlert={newRecordAlert}
           focusedFlyId={focusedFlyId}
           onSelectFly={setFocusedFlyId}
+          onClearHistory={handleClearHistory}
         />
       </div>
 

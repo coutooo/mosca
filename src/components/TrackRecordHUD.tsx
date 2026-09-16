@@ -4,7 +4,7 @@ import React from 'react';
 import { RacingTelemetry, TrackRecord, RaceStatus } from '@/types/racing';
 import { formatCountdown } from '@/lib/raceSchedule';
 import { formatLapTime } from '@/lib/trackData';
-import { Trophy, Clock, Flag, Activity, Video, Square, Flame, Zap } from 'lucide-react';
+import { Trophy, Clock, Flag, Activity, Video, Square, Flame, Zap, Trash2 } from 'lucide-react';
 
 interface TrackRecordHUDProps {
   raceStatus: RaceStatus;
@@ -17,6 +17,7 @@ interface TrackRecordHUDProps {
   newRecordAlert: TrackRecord | null;
   focusedFlyId?: string;
   onSelectFly?: (id: string) => void;
+  onClearHistory?: () => void;
 }
 
 export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
@@ -30,6 +31,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   newRecordAlert,
   focusedFlyId = 'fly-1',
   onSelectFly,
+  onClearHistory,
 }) => {
   const record = telemetry?.lapRecord;
   const currentLap = telemetry?.currentLapTime || 0;
@@ -333,19 +335,31 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
         </div>
       )}
 
-      {/* Recent Records History Table */}
-      {telemetry?.recentRecords && telemetry.recentRecords.length > 0 && (
-        <div className="w-full p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2.5">
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
-            <span className="font-bold text-slate-200">RECENT OFFICIAL LAPS & LEARNING PROGRESSION</span>
-            <span>AUTONOMOUS CONNECTOME TELEMETRY</span>
+      {/* Recent Records History Table / Clean Slate State */}
+      <div className="w-full p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2.5">
+        <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
+          <span className="font-bold text-slate-200">RECENT OFFICIAL LAPS & LEARNING PROGRESSION</span>
+          <div className="flex items-center gap-3">
+            {telemetry?.recentRecords && telemetry.recentRecords.length > 0 && onClearHistory && (
+              <button
+                onClick={onClearHistory}
+                className="flex items-center gap-1.5 text-[11px] font-mono text-rose-400 hover:text-rose-300 transition-colors px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/40 shadow-sm"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Limpar Histórico</span>
+              </button>
+            )}
+            <span className="hidden sm:inline">AUTONOMOUS CONNECTOME TELEMETRY</span>
           </div>
+        </div>
 
+        {telemetry?.recentRecords && telemetry.recentRecords.length > 0 ? (
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left font-mono text-xs">
               <thead>
                 <tr className="text-slate-500 border-b border-slate-800 text-[10px]">
                   <th className="py-2 px-3">HEAT</th>
+                  <th className="py-2 px-3">FLY COMPETITOR</th>
                   <th className="py-2 px-3">LAP TIME</th>
                   <th className="py-2 px-3">TOP SPEED</th>
                   <th className="py-2 px-3">TIME RECORDED</th>
@@ -356,6 +370,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
                 {telemetry.recentRecords.map((r, idx) => (
                   <tr key={idx} className="border-b border-slate-800/40 hover:bg-slate-800/20">
                     <td className="py-2 px-3 text-slate-400">#{r.generation}</td>
+                    <td className="py-2 px-3 font-semibold text-white">{r.holderName || 'Janelia Red'}</td>
                     <td className={`py-2 px-3 font-bold ${idx === 0 ? 'text-cyan-300' : 'text-slate-200'}`}>
                       {r.formattedTime}
                     </td>
@@ -370,8 +385,13 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="py-6 px-4 text-center font-mono text-xs text-slate-500 flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-800/80 rounded-xl bg-slate-950/40">
+            <span className="text-slate-400 font-semibold">Histórico limpo • Sem voltas gravadas</span>
+            <span className="text-slate-600">A pista está livre. O registo começará no próximo heat oficial de 15 minutos.</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

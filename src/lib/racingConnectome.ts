@@ -9,7 +9,18 @@ import {
 } from '@/types/racing';
 import { formatLapTime } from './trackData';
 
-const RECORDS_KEY = 'fly_racing_records_v3';
+const RECORDS_KEY = 'fly_racing_records_v4';
+
+// Purge all old legacy records
+if (typeof window !== 'undefined') {
+  try {
+    ['fly_racing_records', 'fly_racing_records_v1', 'fly_racing_records_v2', 'fly_racing_records_v3'].forEach((k) => {
+      localStorage.removeItem(k);
+    });
+  } catch {
+    // ignore
+  }
+}
 
 const RAY_ANGLES = [
   -Math.PI * 0.42, // Far Left (-75°)
@@ -20,6 +31,18 @@ const RAY_ANGLES = [
   Math.PI * 0.25,  // Mid Right (+45°)
   Math.PI * 0.42,  // Far Right (+75°)
 ];
+
+export function clearStoredRecords(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(RECORDS_KEY);
+    ['fly_racing_records', 'fly_racing_records_v1', 'fly_racing_records_v2', 'fly_racing_records_v3'].forEach((k) => {
+      localStorage.removeItem(k);
+    });
+  } catch (err) {
+    console.error('Failed to clear records', err);
+  }
+}
 
 export function getStoredRecords(): { lapRecord: TrackRecord | null; recentRecords: TrackRecord[] } {
   if (typeof window === 'undefined') {

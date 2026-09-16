@@ -6,7 +6,7 @@ import { RaceStatus, RaceEventSchedule } from '@/types/racing';
  * Also supports manual triggering ("Start Race Now").
  */
 
-const INTERVAL_MINUTES = 5;
+const INTERVAL_MINUTES = 15;
 
 export function calculateNextRaceCountdown(): { secondsUntil: number; eventName: string } {
   const now = new Date();
@@ -31,7 +31,11 @@ export function calculateNextRaceCountdown(): { secondsUntil: number; eventName:
 }
 
 export function formatCountdown(seconds: number): string {
-  const m = Math.floor(Math.max(0, seconds) / 60);
+  const h = Math.floor(Math.max(0, seconds) / 3600);
+  const m = Math.floor((Math.max(0, seconds) % 3600) / 60);
   const s = Math.floor(Math.max(0, seconds) % 60);
+  if (h > 0) {
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
