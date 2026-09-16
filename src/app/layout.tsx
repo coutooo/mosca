@@ -15,21 +15,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'FlyEye ASO — Biologically Proven App Icon A/B Testing',
+  title: 'Drosophila Grand Prix — The Self-Driving Fruit Fly',
   description:
-    'Test and optimize your iOS App Icons using the simulated 165,122-neuron central nervous system of Drosophila melanogaster. 100% client-side biological ASO.',
+    'Watch an adult Drosophila melanogaster central nervous system pilot a Grand Prix circuit 100% autonomously using optical flow and synaptic plasticity. 165,122 biological neurons.',
   openGraph: {
-    title: 'FlyEye ASO — Biologically Proven App Icon A/B Testing',
+    title: 'Drosophila Grand Prix — The Self-Driving Fruit Fly',
     description:
-      'Test your App Icons against 165,122 biological neurons from the Janelia Drosophila connectome.',
-    siteName: 'FlyEye ASO',
+      'Autonomous racing powered by the 165,122-neuron Janelia Drosophila connectome. Scheduled official race heats.',
+    siteName: 'Drosophila Grand Prix',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FlyEye ASO — App Icon A/B Testing by Fruit Fly Brain',
+    title: 'Drosophila Grand Prix — Autonomous Connectome Racing',
     description:
-      'The world’s first biological ASO suite powered by Drosophila melanogaster connectome.',
+      'A biological fruit fly brain racing an F1-style circuit with zero human inputs.',
   },
 };
 

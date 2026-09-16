@@ -7,16 +7,16 @@ export const Footer: React.FC = () => {
         <div className="flex flex-col gap-2 max-w-md">
           <div className="flex items-center gap-2">
             <span className="text-lg">🪰</span>
-            <span className="font-bold text-white text-sm">FlyEye ASO</span>
+            <span className="font-bold text-white text-sm">Drosophila Grand Prix</span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
               Open Source
             </span>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            The world&apos;s first App Icon A/B testing suite powered by a real-time client-side simulation of the adult male <em>Drosophila melanogaster</em> central nervous system.
+            The world&apos;s first autonomous motorsport simulation piloted by the adult male <em>Drosophila melanogaster</em> central nervous system. Official championship heats run on schedule.
           </p>
           <p className="text-[11px] text-slate-500 italic">
-            *Disclaimer: While our ommatidia optics and elementary motion detectors are grounded in published insect neurobiology, fruit flies are notoriously susceptible to glowing blue screens and will occasionally fly into windows.
+            *Disclaimer: While our optical flow and elementary motion detectors are grounded in published Janelia/Cambridge insect neurobiology, fruit flies are notoriously reckless drivers and will occasionally clip the curbs.
           </p>
         </div>
 

@@ -1,21 +1,19 @@
-# 🪰 FlyEye ASO — Biologically Proven App Icon A/B Testing
+# 🪰 Drosophila Grand Prix — The Self-Driving Fruit Fly
 
-> *"Stop guessing what humans want. Optimize for the 165,122-neuron central nervous system of Drosophila melanogaster."*
+> *"Watch an adult Drosophila melanogaster central nervous system pilot an F1 Grand Prix circuit completely on its own using optical flow, elementary motion detection, and synaptic plasticity."*
 
-An open-source, **100% client-side** biological App Icon A/B testing suite built with Next.js, TypeScript, Tailwind CSS, HTML5 Canvas, and Three.js. Grounded in the landmark **HHMI Janelia Male Drosophila CNS Connectome** dataset (~165k neurons, 10M+ synapses).
+An open-source, **100% client-side** autonomous motorsport broadcast built with Next.js 16, TypeScript, Tailwind CSS, HTML5 Canvas, and Three.js. Grounded in the landmark **HHMI Janelia Male Drosophila CNS Connectome** dataset (165,122 neurons, 10M+ synapses).
 
 ---
 
 ## ✨ Features
 
-- 🔬 **800-Facet Ommatidia Compound Eye Vision Simulator**: Hexagonal optical facet downsampling modeling adult *Drosophila melanogaster* optics.
-- ⚡ **Lamina L1/L2 High-Pass Saliency Heatmaps**: Calculates spatial edge gradients and Elementary Motion Detectors (EMD / Hassenstein-Reichardt correlators).
-- 🌈 **UV & Rhodopsin Spectrum Channel**: Simulates R7 UV (~345nm) and R1-R6 rhodopsin (480nm) sensitivity with red channel suppression.
-- 🧠 **Interactive 3D Drosophila Connectome Brain (Three.js)**: Real-time rotatable point cloud rendering of anatomical neural soma clusters (Optic lobes, Medulla, Lobula, Mushroom body, Central complex) with synaptic firing pulses.
-- 📈 **Real-Time Spike Raster Oscilloscope**: Electrophysiological action potential tracing across sensory, optic, and motor neuron channels.
-- 📜 **Biological ASO Audit Certificate**: Official exportable card with projected Apple Search Ads (ASA) CTR lift, saccade dominance, dopamine delta, and humorous neurobiological observations.
-- 🐦 **1-Click Viral X / Twitter Sharing**: Pre-formatted tweet copy and 1-click high-res PNG download with confetti celebration.
-- 🚀 **100% Client-Side**: Zero serverless overhead, zero GPU hosting costs. Infinitely scalable on Vercel's free tier.
+- 🏎️ **60 FPS Circuit de Drosophila**: Top-down high-speed circuit with hairpins, chicanes, high-speed esses, and DRS straights.
+- 🪰 **Autonomous Connectome Navigation**: The fly pilots using 7 compound eye vision raycasts (Elementary Motion Detectors - EMD). No human input required.
+- 🧠 **Live 3D Connectome Telemetry (Three.js)**: Real-time 3D brain model firing left/right lobula plates during cornering, central complex steering, and mushroom body dopamine surges.
+- ⏱️ **Permanent Track Record Tracking**: The all-time circuit lap record, top speed, and generation history are permanently pointed out and tracked across sessions.
+- 🕒 **Scheduled Grand Prix Heats**: The fly rests on the starting grid between races. Official championship heats trigger automatically on schedule every 5 minutes.
+- 🚀 **100% Client-Side Spectator Experience**: Infinitely scalable on Vercel's free tier with zero backend or GPU hosting costs.
 
 ---
 
@@ -23,9 +21,8 @@ An open-source, **100% client-side** biological App Icon A/B testing suite built
 
 - **Framework**: Next.js 16 (App Router) + React 19 + TypeScript
 - **Styling**: Tailwind CSS v4 + Lucide Icons
-- **Visual Computing**: HTML5 Canvas API (Hexagonal Ommatidia & Sobel Saliency Shaders)
-- **3D Engine**: Three.js (Drosophila anatomical point cloud & synaptic pulse network)
-- **Export & Effects**: `html-to-image`, `canvas-confetti`
+- **Physics & Simulation**: HTML5 Canvas (60 FPS raycasting & autonomous physics)
+- **3D Engine**: Three.js (2,200 anatomical soma clusters & synaptic action potential lines)
 
 ---
 
@@ -53,12 +50,12 @@ npm run build
 
 ## ☁️ Deploy to Vercel in 1 Click
 
-Since all computation and 3D rendering are **100% client-side**, this project has zero backend requirements and will never hit serverless timeout or memory limits.
+All physics, neural calculations, and 3D rendering are **100% client-side**, so it deploys anywhere instantly without serverless limits.
 
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "feat: initial FlyEye ASO release"
+   git commit -m "feat: Drosophila Grand Prix release"
    git push origin main
    ```
 2. Import the repository into [Vercel](https://vercel.com/new).

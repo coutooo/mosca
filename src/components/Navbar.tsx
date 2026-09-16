@@ -15,14 +15,14 @@ export const Navbar: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-base font-bold tracking-tight text-white">
-                FlyEye <span className="text-cyan-400">ASO</span>
+                Drosophila <span className="text-cyan-400">Grand Prix</span>
               </span>
               <span className="hidden sm:inline-block text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                v1.0 Drosophila CNS
+                165k Connectome
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono hidden sm:block">
-              Biologically Proven App Icon A/B Testing
+              The Self-Driving Fruit Fly • Autonomous Racing
             </p>
           </div>
         </div>
