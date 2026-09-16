@@ -13,14 +13,28 @@ export interface ReplayFrame {
   rightFlow: number;
 }
 
-export interface MultiFlyReplayFrame {
+export interface MultiFlyFrame {
   flies: {
     id: string;
     x: number;
     y: number;
     angle: number;
     speed: number;
+    steer: number;
+    rank: number;
   }[];
+}
+
+export interface SavedRaceReplay {
+  id: string;
+  title: string;
+  date: string;
+  winnerName: string;
+  winnerTeam: string;
+  winnerColor: string;
+  bestLap: string;
+  totalLaps: number;
+  frames: MultiFlyFrame[];
 }
 
 export interface TrackData {

@@ -7,6 +7,8 @@ import {
   TrackRecord,
   RaceStatus,
   FlyCompetitor,
+  SavedRaceReplay,
+  MultiFlyFrame,
 } from '@/types/racing';
 import { getCircuitData, formatLapTime } from '@/lib/trackData';
 import {
@@ -17,27 +19,17 @@ import {
 } from '@/lib/racingConnectome';
 import confetti from 'canvas-confetti';
 
-interface MultiFlyFrame {
-  flies: {
-    id: string;
-    x: number;
-    y: number;
-    angle: number;
-    speed: number;
-    steer: number;
-    rank: number;
-  }[];
-}
-
 interface RaceTrackCanvasProps {
   raceStatus: RaceStatus;
   startingLightsCount: number;
   isReplaying: boolean;
+  selectedReplay?: SavedRaceReplay | null;
   onReplayFinished: () => void;
   onHasReplayChange: (hasReplay: boolean) => void;
   onTelemetryUpdate: (telemetry: RacingTelemetry) => void;
   onNewRecord: (record: TrackRecord) => void;
   onRaceFinished: (winner: FlyCompetitor, finalRecord: TrackRecord | null) => void;
+  onSaveRunReplay?: (frames: MultiFlyFrame[], winner: FlyCompetitor, record: TrackRecord | null) => void;
   focusedFlyId?: string;
   totalRaceLaps?: number;
 }
@@ -46,11 +38,13 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
   raceStatus,
   startingLightsCount,
   isReplaying,
+  selectedReplay,
   onReplayFinished,
   onHasReplayChange,
   onTelemetryUpdate,
   onNewRecord,
   onRaceFinished,
+  onSaveRunReplay,
   focusedFlyId = 'fly-1',
   totalRaceLaps = 2,
 }) => {
@@ -93,6 +87,14 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       simRef.current.raceLapsDone = 0;
     }
   }, [raceStatus, isReplaying]);
+
+  useEffect(() => {
+    if (selectedReplay && selectedReplay.frames && selectedReplay.frames.length > 0) {
+      lastRunReplayFrames.current = selectedReplay.frames;
+      replayIndexRef.current = 0;
+      onHasReplayChange(true);
+    }
+  }, [selectedReplay, onHasReplayChange]);
 
   useEffect(() => {
     if (isReplaying) {
@@ -159,8 +161,10 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
 
             if (simRef.current.raceLapsDone >= totalRaceLaps) {
               if (recordedRunFrames.current.length > 20) {
-                lastRunReplayFrames.current = [...recordedRunFrames.current];
+                const finishedFrames = [...recordedRunFrames.current];
+                lastRunReplayFrames.current = finishedFrames;
                 onHasReplayChange(true);
+                onSaveRunReplay?.(finishedFrames, comp, newRecordAchieved || getStoredRecords().lapRecord);
               }
               recordedRunFrames.current = [];
               onRaceFinished(comp, newRecordAchieved || getStoredRecords().lapRecord);
@@ -351,7 +355,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       const sp = track.startPoint;
       const cpNext = track.waypoints[11];
       const sAngle = Math.atan2(cpNext.y - sp.y, cpNext.x - sp.x) + Math.PI / 2;
-      const slen = 22;
+      const slen = 38;
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
       ctx.setLineDash([4, 4]);

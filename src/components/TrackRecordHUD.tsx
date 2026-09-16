@@ -63,20 +63,19 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
               comp.rank === 1
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                 : comp.rank === 2
-                ? 'bg-slate-300/10 text-slate-200 border-slate-400/30'
-                : comp.rank === 3
-                ? 'bg-amber-700/20 text-amber-500 border-amber-600/30'
-                : 'bg-slate-800/50 text-slate-400 border-slate-700';
+                  ? 'bg-slate-300/10 text-slate-200 border-slate-400/30'
+                  : comp.rank === 3
+                    ? 'bg-amber-700/20 text-amber-500 border-amber-600/30'
+                    : 'bg-slate-800/50 text-slate-400 border-slate-700';
 
             return (
               <div
                 key={comp.id}
                 onClick={() => onSelectFly?.(comp.id)}
-                className={`px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between text-xs font-mono ${
-                  isFocused
+                className={`px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between text-xs font-mono ${isFocused
                     ? 'bg-slate-800/90 border-cyan-500/70 shadow-[0_0_12px_rgba(6,182,212,0.2)] ring-1 ring-cyan-500/40'
                     : 'bg-slate-950/50 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
-                }`}
+                  }`}
               >
                 {/* Left: Rank & Driver */}
                 <div className="flex items-center gap-2 min-w-0">
@@ -159,7 +158,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
           </div>
         ) : (
           <div className="py-2 px-2 text-center font-mono text-[10px] text-slate-500 border border-dashed border-slate-800/80 rounded-lg">
-            Histórico limpo • Sem voltas gravadas
+            Record Clear
           </div>
         )}
       </div>

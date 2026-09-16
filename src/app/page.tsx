@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { RacingTelemetry, TrackRecord, RaceStatus, FlyCompetitor } from '@/types/racing';
+import { RacingTelemetry, TrackRecord, RaceStatus, FlyCompetitor, SavedRaceReplay, MultiFlyFrame } from '@/types/racing';
 import { RaceTrackCanvas } from '@/components/RaceTrackCanvas';
 import { TrackRecordHUD } from '@/components/TrackRecordHUD';
 import { Brain3D } from '@/components/Brain3D';
+import { ReplayArchiveModal } from '@/components/ReplayArchiveModal';
 import { calculateNextRaceCountdown, formatCountdown } from '@/lib/raceSchedule';
 import { clearStoredRecords } from '@/lib/racingConnectome';
+import { getSavedReplays, saveRaceReplay } from '@/lib/replayStorage';
 import { formatLapTime } from '@/lib/trackData';
 import {
   Trophy,
@@ -16,8 +18,7 @@ import {
   Clock,
   Video,
   Square,
-  Activity,
-  Zap,
+  History,
 } from 'lucide-react';
 
 export default function Home() {
@@ -26,22 +27,32 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [focusedFlyId, setFocusedFlyId] = useState<string>('fly-1');
 
-  // Scheduled race lifecycle states
+  // Daily scheduled race lifecycle states (13:00 and 21:00)
   const [raceStatus, setRaceStatus] = useState<RaceStatus>('WAITING');
   const [startingLightsCount, setStartingLightsCount] = useState<number>(0);
-  const [secondsUntilNext, setSecondsUntilNext] = useState<number>(180);
-  const [eventName, setEventName] = useState<string>('Monaco Drosophila Grand Prix');
+  const [secondsUntilNext, setSecondsUntilNext] = useState<number>(3600);
+  const [eventName, setEventName] = useState<string>('Grand Prix do Meio-Dia (13:00)');
+  const [targetTimeFormatted, setTargetTimeFormatted] = useState<string>('13:00');
 
-  // Replay state
+  // Replay archive states
   const [hasReplay, setHasReplay] = useState<boolean>(false);
   const [isReplaying, setIsReplaying] = useState<boolean>(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState<boolean>(false);
+  const [savedReplays, setSavedReplays] = useState<SavedRaceReplay[]>([]);
+  const [selectedReplay, setSelectedReplay] = useState<SavedRaceReplay | null>(null);
+
+  // Load archived replays on mount
+  useEffect(() => {
+    setSavedReplays(getSavedReplays());
+  }, []);
 
   // Master countdown timer (runs every second)
   useEffect(() => {
     const timer = setInterval(() => {
-      const { secondsUntil, eventName: name } = calculateNextRaceCountdown();
+      const { secondsUntil, eventName: name, targetTimeFormatted: targetTime } = calculateNextRaceCountdown();
       setSecondsUntilNext(secondsUntil);
       setEventName(name);
+      setTargetTimeFormatted(targetTime);
 
       // Trigger scheduled race when time arrives
       if (secondsUntil <= 1 && raceStatus === 'WAITING' && !isReplaying) {
@@ -79,6 +90,27 @@ export default function Home() {
     }, 6000);
   }, []);
 
+  const handleSaveRunReplay = useCallback((frames: MultiFlyFrame[], winner: FlyCompetitor, record: TrackRecord | null) => {
+    const newReplay: SavedRaceReplay = {
+      id: `replay-${Date.now()}`,
+      title: `${eventName} • Vencedor: ${winner.name}`,
+      date: `Hoje, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      winnerName: winner.name,
+      winnerTeam: winner.team,
+      winnerColor: winner.eyeColor,
+      bestLap: winner.bestLapTime ? formatLapTime(winner.bestLapTime) : '14.82s',
+      totalLaps: 2,
+      frames,
+    };
+    saveRaceReplay(newReplay);
+    setSavedReplays(getSavedReplays());
+  }, [eventName]);
+
+  const handleSelectReplay = useCallback((rep: SavedRaceReplay) => {
+    setSelectedReplay(rep);
+    setIsReplaying(true);
+  }, []);
+
   const handleTelemetryUpdate = useCallback((t: RacingTelemetry) => {
     setTelemetry(t);
   }, []);
@@ -106,10 +138,10 @@ export default function Home() {
   const tweetText = telemetry?.lapRecord
     ? `The 165,122-neuron Drosophila melanogaster (fruit fly) brain connectome just set an official circuit lap record: ${telemetry.lapRecord.formattedTime} at ${telemetry.lapRecord.topSpeed} cm/s! 🪰🏁
 
-Runs only during scheduled Grand Prix heats. Powered by Janelia biological connectome:
+Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly overtaking:
 
 #DrosophilaGrandPrix #Neuroscience #AutonomousAI #TechTwitter`
-    : `Watching 4 autonomous 165,122-neuron fruit flies race in scheduled Grand Prix heats! 🪰🏁`;
+    : `Watching 4 autonomous 165,122-neuron fruit flies race on a wide Grand Prix circuit! 🪰🏁`;
 
   const handleShareTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
@@ -140,7 +172,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
               DROSOPHILA GRAND PRIX
             </h1>
             <span className="text-[10px] font-mono text-slate-500 hidden md:inline">
-              165,122 Neurons • 4 Autonomous Flies
+              165,122 Neurons • 2 Corridas Diárias (13:00 & 21:00)
             </span>
           </div>
         </div>
@@ -150,7 +182,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           {isReplaying ? (
             <div className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-bold flex items-center gap-1.5 shadow animate-pulse">
               <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span>INSTANT REPLAY</span>
+              <span>REPLAY: {selectedReplay?.title || 'CORRIDA GRAVADA'}</span>
             </div>
           ) : isRacing ? (
             <div className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono font-black flex items-center gap-1.5 shadow animate-pulse">
@@ -165,7 +197,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           ) : (
             <div className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-amber-400" />
-              <span className="text-slate-400">NEXT HEAT:</span>
+              <span className="text-slate-400">PRÓXIMA CORRIDA ({targetTimeFormatted}):</span>
               <span className="font-bold text-amber-400">{formatCountdown(secondsUntilNext)}</span>
             </div>
           )}
@@ -173,33 +205,32 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5">
-          {hasReplay && !isRacing && raceStatus !== 'STARTING_LIGHTS' && (
+          {/* Replays Archives Button */}
+          <button
+            onClick={() => setIsArchiveOpen(true)}
+            className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <History className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Replays Antigos ({savedReplays.length})</span>
+          </button>
+
+          {isReplaying && (
             <button
-              onClick={() => setIsReplaying(!isReplaying)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1 shadow-sm ${
-                isReplaying
-                  ? 'bg-rose-600 text-white'
-                  : 'bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800'
-              }`}
+              onClick={() => {
+                setIsReplaying(false);
+                setSelectedReplay(null);
+              }}
+              className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1 shadow-sm"
             >
-              {isReplaying ? (
-                <>
-                  <Square className="w-3 h-3 fill-current" />
-                  <span>Exit</span>
-                </>
-              ) : (
-                <>
-                  <Video className="w-3 h-3" />
-                  <span>Replay</span>
-                </>
-              )}
+              <Square className="w-3 h-3 fill-current" />
+              <span>Sair do Replay</span>
             </button>
           )}
 
           <button
             onClick={handleCopyText}
             className="px-2 py-1 rounded-lg text-xs font-mono text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
-            title="Copy Telemetry"
+            title="Copiar Telemetria"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
           </button>
@@ -227,11 +258,16 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
               raceStatus={raceStatus}
               startingLightsCount={startingLightsCount}
               isReplaying={isReplaying}
-              onReplayFinished={() => setIsReplaying(false)}
+              selectedReplay={selectedReplay}
+              onReplayFinished={() => {
+                setIsReplaying(false);
+                setSelectedReplay(null);
+              }}
               onHasReplayChange={setHasReplay}
               onTelemetryUpdate={handleTelemetryUpdate}
               onNewRecord={handleNewRecord}
               onRaceFinished={handleRaceFinished}
+              onSaveRunReplay={handleSaveRunReplay}
               focusedFlyId={focusedFlyId}
               totalRaceLaps={2}
             />
@@ -242,7 +278,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
             {/* Record */}
             <div className="flex items-center gap-2">
               <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="text-slate-400 text-[11px]">RECORD:</span>
+              <span className="text-slate-400 text-[11px]">RECORDE:</span>
               <span className="font-bold text-white">
                 {telemetry?.lapRecord ? telemetry.lapRecord.formattedTime : '--:--.---'}
               </span>
@@ -276,7 +312,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
 
             {/* Optic Flow Meter */}
             <div className="flex items-center gap-2 text-[10px] text-slate-400">
-              <span className="hidden sm:inline">RAY FLOW</span>
+              <span className="hidden sm:inline">ESTRADA LARGA (78px)</span>
               <div className="w-14 h-1.5 bg-slate-950 rounded-full flex overflow-hidden">
                 <div
                   className="h-full bg-cyan-400 transition-all duration-75"
@@ -386,6 +422,14 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           </div>
         </div>
       </div>
+
+      {/* Replay Archive Modal */}
+      <ReplayArchiveModal
+        isOpen={isArchiveOpen}
+        onClose={() => setIsArchiveOpen(false)}
+        replays={savedReplays}
+        onSelectReplay={handleSelectReplay}
+      />
     </main>
   );
 }

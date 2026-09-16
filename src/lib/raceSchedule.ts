@@ -1,41 +1,62 @@
-import { RaceStatus, RaceEventSchedule } from '@/types/racing';
-
 /**
- * Manages the Scheduled Drosophila Race Times
- * Races trigger automatically at fixed intervals (e.g. every 5 minutes: :00, :05, :10, :15...)
- * Also supports manual triggering ("Start Race Now").
+ * Daily Grand Prix Race Schedule
+ * Exactly 2 Official Heats per Day:
+ *  - Heat 1 (Midday Grand Prix): 13:00 local time
+ *  - Heat 2 (Night Grand Prix):   21:00 local time
+ *
+ * Between heats, users can browse past races in the Replay Archive.
  */
 
-const INTERVAL_MINUTES = 15;
-
-export function calculateNextRaceCountdown(): { secondsUntil: number; eventName: string } {
+export function calculateNextRaceCountdown(): {
+  secondsUntil: number;
+  eventName: string;
+  targetTimeFormatted: string;
+} {
   const now = new Date();
-  const minutes = now.getMinutes();
-  const seconds = now.getSeconds();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentSecond = now.getSeconds();
+  const currentTotalSeconds = currentHour * 3600 + currentMinute * 60 + currentSecond;
 
-  const currentBlock = Math.floor(minutes / INTERVAL_MINUTES);
-  const nextBlockMinute = (currentBlock + 1) * INTERVAL_MINUTES;
-  const minutesRemaining = nextBlockMinute - minutes;
-  const secondsUntil = minutesRemaining * 60 - seconds;
+  const heat1Seconds = 13 * 3600; // 13:00
+  const heat2Seconds = 21 * 3600; // 21:00
 
-  const eventNames = [
-    'Monaco Drosophila Grand Prix',
-    'Suzuka Bio-Sprint Championship',
-    'Silverstone Optical Flow Trophy',
-    'Interlagos Connectome Cup',
-    'Spa-Francorchamps Bio-Challenge',
-  ];
-  const eventName = eventNames[currentBlock % eventNames.length];
-
-  return { secondsUntil, eventName };
+  if (currentTotalSeconds < heat1Seconds) {
+    // Next heat is 13:00 today
+    const diff = heat1Seconds - currentTotalSeconds;
+    return {
+      secondsUntil: diff,
+      eventName: 'Grand Prix do Meio-Dia (13:00)',
+      targetTimeFormatted: '13:00',
+    };
+  } else if (currentTotalSeconds < heat2Seconds) {
+    // Next heat is 21:00 today
+    const diff = heat2Seconds - currentTotalSeconds;
+    return {
+      secondsUntil: diff,
+      eventName: 'Grand Prix Noturno (21:00)',
+      targetTimeFormatted: '21:00',
+    };
+  } else {
+    // Next heat is 13:00 tomorrow
+    const secondsTillMidnight = 24 * 3600 - currentTotalSeconds;
+    const diff = secondsTillMidnight + heat1Seconds;
+    return {
+      secondsUntil: diff,
+      eventName: 'Grand Prix de Amanhã (13:00)',
+      targetTimeFormatted: 'Amanhã 13:00',
+    };
+  }
 }
 
 export function formatCountdown(seconds: number): string {
-  const h = Math.floor(Math.max(0, seconds) / 3600);
-  const m = Math.floor((Math.max(0, seconds) % 3600) / 60);
-  const s = Math.floor(Math.max(0, seconds) % 60);
+  const total = Math.max(0, seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = Math.floor(total % 60);
+
   if (h > 0) {
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
   }
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  return `${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
 }
