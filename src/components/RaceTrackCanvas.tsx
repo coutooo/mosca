@@ -7,6 +7,7 @@ import {
   RacingTelemetry,
   TrackRecord,
   RaceStatus,
+  ReplayFrame,
 } from '@/types/racing';
 import { getCircuitData } from '@/lib/trackData';
 import {
@@ -16,11 +17,13 @@ import {
   getStoredRecords,
 } from '@/lib/racingConnectome';
 import confetti from 'canvas-confetti';
-import { FastForward, Eye, Flag, RotateCcw } from 'lucide-react';
 
 interface RaceTrackCanvasProps {
   raceStatus: RaceStatus;
   startingLightsCount: number;
+  isReplaying: boolean;
+  onReplayFinished: () => void;
+  onHasReplayChange: (hasReplay: boolean) => void;
   onTelemetryUpdate: (telemetry: RacingTelemetry) => void;
   onNewRecord: (record: TrackRecord) => void;
   onRaceFinished: (finalRecord: TrackRecord | null) => void;
@@ -30,17 +33,25 @@ interface RaceTrackCanvasProps {
 export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
   raceStatus,
   startingLightsCount,
+  isReplaying,
+  onReplayFinished,
+  onHasReplayChange,
   onTelemetryUpdate,
   onNewRecord,
   onRaceFinished,
   totalRaceLaps = 2,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [speedMultiplier, setSpeedMultiplier] = useState(1);
-  const [showRays, setShowRays] = useState(true);
 
   const statusRef = useRef(raceStatus);
   statusRef.current = raceStatus;
+
+  const isReplayingRef = useRef(isReplaying);
+  isReplayingRef.current = isReplaying;
+
+  const recordedRunFrames = useRef<ReplayFrame[]>([]);
+  const lastRunReplayFrames = useRef<ReplayFrame[]>([]);
+  const replayIndexRef = useRef<number>(0);
 
   const simRef = useRef<{
     track: TrackData;
@@ -62,18 +73,19 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
 
   // Reset fly to starting grid whenever waiting or starting
   useEffect(() => {
-    if (raceStatus === 'WAITING' || raceStatus === 'STARTING_LIGHTS') {
+    if (!isReplaying && (raceStatus === 'WAITING' || raceStatus === 'STARTING_LIGHTS')) {
       const track = simRef.current.track;
       simRef.current.fly = createInitialFlyState(track);
       simRef.current.raceLapCount = 0;
     }
-  }, [raceStatus]);
+  }, [raceStatus, isReplaying]);
 
-  const handleResetPosition = () => {
-    const track = simRef.current.track;
-    simRef.current.fly = createInitialFlyState(track);
-    simRef.current.raceLapCount = 0;
-  };
+  // Handle replay reset
+  useEffect(() => {
+    if (isReplaying) {
+      replayIndexRef.current = 0;
+    }
+  }, [isReplaying]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -87,41 +99,69 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       animId = requestAnimationFrame(loop);
 
       const currentStatus = statusRef.current;
+      const replaying = isReplayingRef.current;
       const { track, fly, weights } = simRef.current;
 
-      // -------------------------------------------------------------
-      // 1. Physics update ONLY when in RACING state!
-      // -------------------------------------------------------------
       let newRecordAchieved: TrackRecord | null = null;
       let crashedThisTick = false;
       let lapDoneThisTick = false;
 
-      if (currentStatus === 'RACING') {
-        const substeps = speedMultiplier;
+      // -------------------------------------------------------------
+      // 1. REPLAY MODE vs LIVE RACING vs IDLE
+      // -------------------------------------------------------------
+      if (replaying && lastRunReplayFrames.current.length > 0) {
+        const frame = lastRunReplayFrames.current[replayIndexRef.current];
+        if (frame) {
+          fly.x = frame.x;
+          fly.y = frame.y;
+          fly.angle = frame.angle;
+          fly.speed = frame.speed;
+          fly.steer = frame.steer;
 
-        for (let s = 0; s < substeps; s++) {
-          const stepRes = stepAutonomousFly(fly, track, weights, 0.016);
-          simRef.current.fly = stepRes.fly;
-          simRef.current.weights = stepRes.weights;
-
-          if (stepRes.newRecord) {
-            newRecordAchieved = stepRes.newRecord;
+          replayIndexRef.current++;
+          if (replayIndexRef.current >= lastRunReplayFrames.current.length) {
+            replayIndexRef.current = 0;
+            onReplayFinished();
           }
-          if (stepRes.crashed) {
-            crashedThisTick = true;
-          }
-          if (stepRes.lapCompleted) {
-            lapDoneThisTick = true;
-            simRef.current.raceLapCount++;
+        }
+      } else if (currentStatus === 'RACING') {
+        const stepRes = stepAutonomousFly(fly, track, weights, 0.016);
+        simRef.current.fly = stepRes.fly;
+        simRef.current.weights = stepRes.weights;
 
-            // Check if official race distance has completed
-            if (simRef.current.raceLapCount >= totalRaceLaps) {
-              onRaceFinished(newRecordAchieved || getStoredRecords().lapRecord);
+        // Record frame for replay
+        recordedRunFrames.current.push({
+          x: fly.x,
+          y: fly.y,
+          angle: fly.angle,
+          speed: fly.speed,
+          steer: fly.steer,
+          leftFlow: (fly.raySensors[0]?.distance ? 1 - fly.raySensors[0].distance : 0.5),
+          rightFlow: (fly.raySensors[6]?.distance ? 1 - fly.raySensors[6].distance : 0.5),
+        });
+
+        if (stepRes.newRecord) {
+          newRecordAchieved = stepRes.newRecord;
+        }
+        if (stepRes.crashed) {
+          crashedThisTick = true;
+        }
+        if (stepRes.lapCompleted) {
+          lapDoneThisTick = true;
+          simRef.current.raceLapCount++;
+
+          if (simRef.current.raceLapCount >= totalRaceLaps) {
+            // Save replay
+            if (recordedRunFrames.current.length > 20) {
+              lastRunReplayFrames.current = [...recordedRunFrames.current];
+              onHasReplayChange(true);
             }
+            recordedRunFrames.current = [];
+            onRaceFinished(newRecordAchieved || getStoredRecords().lapRecord);
           }
         }
       } else {
-        // Fly is parked at the start line
+        // Idling on pole position
         fly.speed = 0;
         fly.steer = 0;
         fly.x = track.startPoint.x;
@@ -171,10 +211,10 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         generation: fly.lapsCompleted + fly.crashCount,
         totalLaps: fly.lapsCompleted,
         totalCrashes: fly.crashCount,
-        speed: currentStatus === 'RACING' ? Math.round(fly.speed * 18 * 10) / 10 : 0,
-        gForce: currentStatus === 'RACING' ? Math.round(Math.abs(fly.steer) * (fly.speed / 2.5) * 10) / 10 : 0,
-        leftEyeOpticalFlow: currentStatus === 'RACING' ? leftFlow : 0.2,
-        rightEyeOpticalFlow: currentStatus === 'RACING' ? rightFlow : 0.2,
+        speed: currentStatus === 'RACING' || replaying ? Math.round(fly.speed * 18 * 10) / 10 : 0,
+        gForce: currentStatus === 'RACING' || replaying ? Math.round(Math.abs(fly.steer) * (fly.speed / 2.5) * 10) / 10 : 0,
+        leftEyeOpticalFlow: currentStatus === 'RACING' || replaying ? leftFlow : 0.2,
+        rightEyeOpticalFlow: currentStatus === 'RACING' || replaying ? rightFlow : 0.2,
         steeringAngle: fly.steer,
         dopamineSurge: simRef.current.dopamineSurge,
         painShock: simRef.current.painShock,
@@ -240,9 +280,9 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.setLineDash([]);
 
       // Barriers with Neon Glow
-      ctx.strokeStyle = '#0284c7';
+      ctx.strokeStyle = replaying ? '#06b6d4' : '#0284c7';
       ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#38bdf8';
+      ctx.shadowColor = replaying ? '#22d3ee' : '#38bdf8';
       ctx.shadowBlur = 6;
       ctx.beginPath();
       ctx.moveTo(track.outerBoundary[0].x, track.outerBoundary[0].y);
@@ -283,8 +323,8 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.lineWidth = 1.5;
       ctx.strokeRect(sp.x - 14, sp.y - 12, 28, 24);
 
-      // Vision Rays (only active when racing)
-      if (showRays && currentStatus === 'RACING') {
+      // Vision Rays
+      if (currentStatus === 'RACING' || replaying) {
         fly.raySensors.forEach((ray, rIdx) => {
           const isLeft = rIdx < 3;
           const isCenter = rIdx === 3;
@@ -312,9 +352,9 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.translate(fly.x, fly.y);
       ctx.rotate(fly.angle);
 
-      // Speed Wake when racing fast
-      if (fly.speed > 2.5 && currentStatus === 'RACING') {
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+      // Speed Wake
+      if (fly.speed > 2.5 && (currentStatus === 'RACING' || replaying)) {
+        ctx.fillStyle = replaying ? 'rgba(34, 211, 238, 0.4)' : 'rgba(56, 189, 248, 0.3)';
         ctx.beginPath();
         ctx.ellipse(-14, 0, 7 + Math.random() * 4, 3, 0, 0, Math.PI * 2);
         ctx.fill();
@@ -341,9 +381,9 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.lineTo(-3, 5);
       ctx.stroke();
 
-      // Translucent Wings (Flapping gently when waiting, fast when racing)
-      const flapRate = currentStatus === 'RACING' ? 0.04 + fly.speed * 0.02 : 0.008;
-      const wingFlutter = Math.sin(currentTime * flapRate) * (currentStatus === 'RACING' ? 6 : 2.5);
+      // Translucent Wings
+      const flapRate = (currentStatus === 'RACING' || replaying) ? 0.04 + fly.speed * 0.02 : 0.008;
+      const wingFlutter = Math.sin(currentTime * flapRate) * ((currentStatus === 'RACING' || replaying) ? 6 : 2.5);
       ctx.fillStyle = 'rgba(203, 230, 247, 0.7)';
       ctx.strokeStyle = '#a1c9e8';
       ctx.lineWidth = 0.8;
@@ -379,10 +419,29 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.restore();
 
       // -------------------------------------------------------------
-      // 3. Status Overlays: F1 Starting Lights & Grid Waiting Banner
+      // 3. Status Overlays: Replay Mode vs F1 Lights vs Waiting
       // -------------------------------------------------------------
-      if (currentStatus === 'STARTING_LIGHTS') {
-        // Render F1-style 5 Starting Lights Gantry in the center
+      if (replaying) {
+        // Replay Mode Top Banner
+        const progress = Math.min(100, Math.round((replayIndexRef.current / (lastRunReplayFrames.current.length || 1)) * 100));
+
+        ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(w / 2 - 170, 35, 340, 52, 14);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = 'bold 12px monospace';
+        ctx.fillStyle = '#22d3ee';
+        ctx.textAlign = 'center';
+        ctx.fillText(`📹 REPLAY OF LAST RUN • ${progress}%`, w / 2, 58);
+
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('Replaying autonomous optical flow and steering trajectory', w / 2, 74);
+      } else if (currentStatus === 'STARTING_LIGHTS') {
         const lx = w / 2 - 100;
         const ly = 70;
 
@@ -416,7 +475,6 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         ctx.textAlign = 'center';
         ctx.fillText('LIGHTS OUT AND AWAY WE GO!', w / 2, ly + 65);
       } else if (currentStatus === 'WAITING') {
-        // Grid Waiting Overlay Banner
         const bw = 320;
         const bh = 50;
         const bx = w / 2 - bw / 2;
@@ -433,13 +491,12 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         ctx.font = 'bold 11px monospace';
         ctx.fillStyle = '#38bdf8';
         ctx.textAlign = 'center';
-        ctx.fillText('🏁 GRID WAITING • FLY IDLING ON POLE', w / 2, by + 22);
+        ctx.fillText('🏁 GRID STANDBY • FLY IDLING ON POLE', w / 2, by + 22);
 
         ctx.font = '10px monospace';
         ctx.fillStyle = '#94a3b8';
         ctx.fillText('Track opens automatically when scheduled race starts', w / 2, by + 38);
       } else if (currentStatus === 'FINISHED') {
-        // Finish Flag Banner
         ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
         ctx.strokeStyle = '#10b981';
         ctx.lineWidth = 2;
@@ -464,7 +521,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [speedMultiplier, showRays, onTelemetryUpdate, onNewRecord, onRaceFinished, totalRaceLaps, startingLightsCount]);
+  }, [onTelemetryUpdate, onNewRecord, onRaceFinished, totalRaceLaps, startingLightsCount, onReplayFinished, onHasReplayChange]);
 
   return (
     <div className="w-full flex flex-col items-center gap-3">
@@ -480,16 +537,16 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none">
           <div className="px-2.5 py-1 rounded-md bg-slate-950/80 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono text-cyan-400 flex items-center gap-1.5 shadow">
             <span className={`w-1.5 h-1.5 rounded-full ${
-              raceStatus === 'RACING' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
+              isReplaying ? 'bg-cyan-400 animate-pulse' : raceStatus === 'RACING' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
             }`} />
             <span>CIRCUIT DE MONACO-DROSOPHILA</span>
           </div>
         </div>
 
-        {/* Top Right Broadcast Status */}
+        {/* Top Right Status */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-          <span>LIVE TELEMETRY FEED</span>
+          <span className={`w-2 h-2 rounded-full ${isReplaying ? 'bg-cyan-400 animate-ping' : 'bg-rose-500 animate-pulse'}`} />
+          <span>{isReplaying ? 'INSTANT REPLAY ACTIVE' : 'LIVE TELEMETRY FEED'}</span>
         </div>
       </div>
     </div>

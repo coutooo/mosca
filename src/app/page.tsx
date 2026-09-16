@@ -27,6 +27,10 @@ export default function Home() {
   const [secondsUntilNext, setSecondsUntilNext] = useState<number>(180);
   const [eventName, setEventName] = useState<string>('Monaco Drosophila Grand Prix');
 
+  // Replay of last run state
+  const [hasReplay, setHasReplay] = useState<boolean>(false);
+  const [isReplaying, setIsReplaying] = useState<boolean>(false);
+
   // Master countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
@@ -35,13 +39,13 @@ export default function Home() {
       setEventName(name);
 
       // If scheduled time arrives and we are currently waiting -> trigger race!
-      if (secondsUntil <= 1 && raceStatus === 'WAITING') {
+      if (secondsUntil <= 1 && raceStatus === 'WAITING' && !isReplaying) {
         startRaceSequence();
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [raceStatus]);
+  }, [raceStatus, isReplaying]);
 
   // Start Race Sequence (Starting lights 1 -> 2 -> 3 -> 4 -> 5 -> GO!)
   const startRaceSequence = useCallback(() => {
@@ -152,6 +156,9 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           <RaceTrackCanvas
             raceStatus={raceStatus}
             startingLightsCount={startingLightsCount}
+            isReplaying={isReplaying}
+            onReplayFinished={() => setIsReplaying(false)}
+            onHasReplayChange={setHasReplay}
             onTelemetryUpdate={handleTelemetryUpdate}
             onNewRecord={handleNewRecord}
             onRaceFinished={handleRaceFinished}
@@ -161,7 +168,11 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-2">
             <span>Circuit Length: 420m • 12 Sector Checkpoints</span>
             <span className="text-cyan-400">
-              {raceStatus === 'RACING' ? '● Official Heat In Progress' : 'Grid Idling • Next Heat Scheduled'}
+              {isReplaying
+                ? '📹 Instant Replay Playback'
+                : raceStatus === 'RACING'
+                ? '● Official Heat In Progress'
+                : 'Grid Standby • Next Heat Scheduled'}
             </span>
           </div>
         </div>
@@ -175,18 +186,18 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
                 <span>3D CONNECTOME IN ACTION</span>
               </span>
               <span className="text-[10px] font-mono text-cyan-400">
-                {raceStatus === 'RACING' ? `${telemetry?.speed || 0} cm/s` : 'IDLE MEMBRANE'}
+                {raceStatus === 'RACING' || isReplaying ? `${telemetry?.speed || 0} cm/s` : 'IDLE MEMBRANE'}
               </span>
             </div>
 
             <div className="w-full h-[220px] rounded-xl bg-slate-950/80 border border-slate-800/80 overflow-hidden">
               <Brain3D
-                steeringAngle={raceStatus === 'RACING' ? (telemetry?.steeringAngle || 0) : 0}
-                speed={raceStatus === 'RACING' ? (telemetry?.speed || 0) : 0}
+                steeringAngle={raceStatus === 'RACING' || isReplaying ? (telemetry?.steeringAngle || 0) : 0}
+                speed={raceStatus === 'RACING' || isReplaying ? (telemetry?.speed || 0) : 0}
                 dopamineSurge={telemetry?.dopamineSurge || false}
                 painShock={telemetry?.painShock || false}
-                leftFlow={raceStatus === 'RACING' ? (telemetry?.leftEyeOpticalFlow || 0.5) : 0.2}
-                rightFlow={raceStatus === 'RACING' ? (telemetry?.rightEyeOpticalFlow || 0.5) : 0.2}
+                leftFlow={raceStatus === 'RACING' || isReplaying ? (telemetry?.leftEyeOpticalFlow || 0.5) : 0.2}
+                rightFlow={raceStatus === 'RACING' || isReplaying ? (telemetry?.rightEyeOpticalFlow || 0.5) : 0.2}
                 height={220}
               />
             </div>
@@ -196,24 +207,24 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
                 <span className="text-slate-400 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${
-                    raceStatus === 'RACING' && (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
+                    (raceStatus === 'RACING' || isReplaying) && (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
                   }`} />
                   <span>Left Lobula (L. Turn)</span>
                 </span>
                 <span className="font-bold text-cyan-400">
-                  {raceStatus === 'RACING' ? `${Math.round((telemetry?.leftEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
+                  {raceStatus === 'RACING' || isReplaying ? `${Math.round((telemetry?.leftEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
                 </span>
               </div>
 
               <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
                 <span className="text-slate-400 flex items-center gap-1.5">
                   <span className={`w-2 h-2 rounded-full ${
-                    raceStatus === 'RACING' && (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
+                    (raceStatus === 'RACING' || isReplaying) && (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
                   }`} />
                   <span>Right Lobula (R. Turn)</span>
                 </span>
                 <span className="font-bold text-purple-400">
-                  {raceStatus === 'RACING' ? `${Math.round((telemetry?.rightEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
+                  {raceStatus === 'RACING' || isReplaying ? `${Math.round((telemetry?.rightEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
                 </span>
               </div>
 
@@ -239,6 +250,9 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           raceStatus={raceStatus}
           secondsUntilNextEvent={secondsUntilNext}
           eventName={eventName}
+          hasReplay={hasReplay}
+          isReplaying={isReplaying}
+          onToggleReplay={() => setIsReplaying(!isReplaying)}
           telemetry={telemetry}
           newRecordAlert={newRecordAlert}
         />

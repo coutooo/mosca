@@ -1,3 +1,13 @@
+export interface ReplayFrame {
+  x: number;
+  y: number;
+  angle: number;
+  speed: number;
+  steer: number;
+  leftFlow: number;
+  rightFlow: number;
+}
+
 export interface Point {
   x: number;
   y: number;

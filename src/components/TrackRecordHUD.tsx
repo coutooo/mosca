@@ -4,12 +4,15 @@ import React from 'react';
 import { RacingTelemetry, TrackRecord, RaceStatus } from '@/types/racing';
 import { formatCountdown } from '@/lib/raceSchedule';
 import { formatLapTime } from '@/lib/trackData';
-import { Trophy, Clock, Flag, Activity, Play, Zap, Flame } from 'lucide-react';
+import { Trophy, Clock, Flag, Activity, Video, Square, Flame, Zap } from 'lucide-react';
 
 interface TrackRecordHUDProps {
   raceStatus: RaceStatus;
   secondsUntilNextEvent: number;
   eventName: string;
+  hasReplay: boolean;
+  isReplaying: boolean;
+  onToggleReplay: () => void;
   telemetry: RacingTelemetry | null;
   newRecordAlert: TrackRecord | null;
 }
@@ -18,6 +21,9 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   raceStatus,
   secondsUntilNextEvent,
   eventName,
+  hasReplay,
+  isReplaying,
+  onToggleReplay,
   telemetry,
   newRecordAlert,
 }) => {
@@ -25,17 +31,18 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   const currentLap = telemetry?.currentLapTime || 0;
   const lastLap = telemetry?.lastLapTime;
 
-  // Real-time delta against record
   const delta = record ? currentLap - record.lapTime : 0;
   const isAhead = record ? delta < 0 : false;
 
   return (
     <div className="w-full flex flex-col gap-4">
-      {/* Top Banner: Scheduled Race Event Countdown */}
+      {/* Top Banner: Scheduled Race Event Countdown & Replay Trigger */}
       <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-lg shadow ${
-            raceStatus === 'RACING'
+            isReplaying
+              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse'
+              : raceStatus === 'RACING'
               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse'
               : raceStatus === 'STARTING_LIGHTS'
               ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-ping'
@@ -48,7 +55,11 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
               <span className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider">
                 {eventName}
               </span>
-              {raceStatus === 'RACING' ? (
+              {isReplaying ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-mono font-black shadow animate-pulse">
+                  📹 INSTANT REPLAY PLAYBACK
+                </span>
+              ) : raceStatus === 'RACING' ? (
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-mono font-black animate-pulse shadow">
                   ● OFFICIAL RACE ACTIVE
                 </span>
@@ -68,20 +79,39 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
           </div>
         </div>
 
-        {/* Countdown Display (Purely Visual, No Buttons) */}
+        {/* Right Section: Countdown & Replay Button */}
         <div className="flex items-center gap-3">
-          {raceStatus === 'WAITING' ? (
+          {/* Replay of Last Run Button */}
+          {hasReplay && raceStatus !== 'RACING' && raceStatus !== 'STARTING_LIGHTS' && (
+            <button
+              onClick={onToggleReplay}
+              className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 shadow ${
+                isReplaying
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
+                  : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 hover:border-cyan-500/50'
+              }`}
+            >
+              {isReplaying ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Exit Replay</span>
+                </>
+              ) : (
+                <>
+                  <Video className="w-3.5 h-3.5" />
+                  <span>Watch Replay of Last Run</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Countdown Clock */}
+          {!isReplaying && raceStatus === 'WAITING' && (
             <div className="flex flex-col items-end font-mono">
               <span className="text-[10px] text-slate-500 uppercase">NEXT OFFICIAL HEAT IN</span>
-              <span className="text-2xl font-black text-amber-400 flex items-center gap-1.5">
+              <span className="text-xl font-black text-amber-400 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-amber-500" />
                 <span>{formatCountdown(secondsUntilNextEvent)}</span>
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 font-mono text-xs">
-              <span className="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">
-                RACE IN PROGRESS
               </span>
             </div>
           )}
@@ -90,7 +120,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
 
       {/* Main Track Record Board */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 1. All-Time Lap Record Card (Always Pointed Out!) */}
+        {/* 1. All-Time Lap Record Card */}
         <div className="relative p-5 rounded-2xl bg-gradient-to-b from-amber-950/25 via-slate-900 to-slate-950/90 border border-amber-500/40 shadow-[0_0_25px_rgba(245,158,11,0.15)] flex flex-col justify-between overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
@@ -124,9 +154,9 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-cyan-400" />
-              <span>CURRENT HEAT LAP TIME</span>
+              <span>{isReplaying ? 'REPLAY LAP TIME' : 'CURRENT HEAT LAP TIME'}</span>
             </span>
-            {record && raceStatus === 'RACING' && (
+            {record && (raceStatus === 'RACING' || isReplaying) && (
               <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
                 isAhead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-400'
               }`}>
@@ -137,7 +167,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
 
           <div className="my-3">
             <span className="text-4xl sm:text-5xl font-black tracking-tight text-cyan-300 font-mono">
-              {raceStatus === 'RACING' ? formatLapTime(currentLap) : '--:--.---'}
+              {(raceStatus === 'RACING' || isReplaying) ? formatLapTime(currentLap) : '--:--.---'}
             </span>
             <div className="flex items-center gap-3 text-xs font-mono text-slate-400 mt-1">
               <span>Last Completed Lap: <b className="text-slate-200">{lastLap ? formatLapTime(lastLap) : '--'}</b></span>
@@ -158,7 +188,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
               <span>FLIGHT TELEMETRY</span>
             </span>
             <span className="text-[10px] font-mono text-slate-500">
-              {raceStatus === 'RACING' ? 'LIVE TRACKING' : 'IDLE / PADDOCK'}
+              {(raceStatus === 'RACING' || isReplaying) ? 'LIVE TRACKING' : 'IDLE / PADDOCK'}
             </span>
           </div>
 
