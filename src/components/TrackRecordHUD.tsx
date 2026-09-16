@@ -10,7 +10,6 @@ interface TrackRecordHUDProps {
   raceStatus: RaceStatus;
   secondsUntilNextEvent: number;
   eventName: string;
-  onStartRaceNow: () => void;
   telemetry: RacingTelemetry | null;
   newRecordAlert: TrackRecord | null;
 }
@@ -19,7 +18,6 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   raceStatus,
   secondsUntilNextEvent,
   eventName,
-  onStartRaceNow,
   telemetry,
   newRecordAlert,
 }) => {
@@ -33,7 +31,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
 
   return (
     <div className="w-full flex flex-col gap-4">
-      {/* Top Banner: Scheduled Race Event Countdown & Live Trigger */}
+      {/* Top Banner: Scheduled Race Event Countdown */}
       <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-lg shadow ${
@@ -60,35 +58,25 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
                 </span>
               ) : (
                 <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 text-[10px] font-mono border border-slate-700">
-                  GRID STANDBY (WAITING FOR RACE TIME)
+                  GRID STANDBY (NEXT HEAT AUTOMATIC)
                 </span>
               )}
             </div>
             <p className="text-[11px] text-slate-400 font-mono">
-              The fly rests on the starting line and runs official heats when the time arrives
+              Live broadcast • The fly races automatically when the scheduled time arrives
             </p>
           </div>
         </div>
 
-        {/* Countdown & Instant Start Action */}
+        {/* Countdown Display (Purely Visual, No Buttons) */}
         <div className="flex items-center gap-3">
           {raceStatus === 'WAITING' ? (
-            <div className="flex items-center gap-3 font-mono">
-              <div className="flex flex-col items-end">
-                <span className="text-[10px] text-slate-500 uppercase">NEXT OFFICIAL HEAT IN</span>
-                <span className="text-xl font-black text-amber-400 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-amber-500" />
-                  <span>{formatCountdown(secondsUntilNextEvent)}</span>
-                </span>
-              </div>
-
-              <button
-                onClick={onStartRaceNow}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-400 hover:from-cyan-400 hover:to-sky-300 text-slate-950 font-mono font-black text-xs uppercase shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all flex items-center gap-1.5 transform hover:-translate-y-0.5"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Start Race Now</span>
-              </button>
+            <div className="flex flex-col items-end font-mono">
+              <span className="text-[10px] text-slate-500 uppercase">NEXT OFFICIAL HEAT IN</span>
+              <span className="text-2xl font-black text-amber-400 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <span>{formatCountdown(secondsUntilNextEvent)}</span>
+              </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 font-mono text-xs">

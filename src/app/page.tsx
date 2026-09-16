@@ -14,7 +14,6 @@ import {
   Zap,
   Eye,
   Flag,
-  Play,
 } from 'lucide-react';
 
 export default function Home() {
@@ -240,7 +239,6 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           raceStatus={raceStatus}
           secondsUntilNextEvent={secondsUntilNext}
           eventName={eventName}
-          onStartRaceNow={startRaceSequence}
           telemetry={telemetry}
           newRecordAlert={newRecordAlert}
         />
