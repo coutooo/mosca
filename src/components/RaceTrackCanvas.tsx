@@ -232,10 +232,23 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       const fly = focusedComp.state;
 
       const records = getStoredRecords();
-      const leftSensors = fly.raySensors.slice(0, 3);
-      const rightSensors = fly.raySensors.slice(4, 7);
-      const leftFlow = leftSensors.reduce((acc, r) => acc + (1 - r.distance), 0) / 3;
-      const rightFlow = rightSensors.reduce((acc, r) => acc + (1 - r.distance), 0) / 3;
+
+      // Compute accurate optical flow from ray sensors or steering dynamics
+      let leftFlow = 0.2;
+      let rightFlow = 0.2;
+
+      if (fly.raySensors && fly.raySensors.length >= 7) {
+        const leftSensors = fly.raySensors.slice(0, 3);
+        const rightSensors = fly.raySensors.slice(4, 7);
+        const sensorLeft = leftSensors.reduce((acc, r) => acc + (1 - (r?.distance ?? 1)), 0) / 3;
+        const sensorRight = rightSensors.reduce((acc, r) => acc + (1 - (r?.distance ?? 1)), 0) / 3;
+        leftFlow = Math.max(sensorLeft, fly.steer < -0.05 ? Math.min(1, Math.abs(fly.steer) * 2.2 + 0.2) : 0.15);
+        rightFlow = Math.max(sensorRight, fly.steer > 0.05 ? Math.min(1, Math.abs(fly.steer) * 2.2 + 0.2) : 0.15);
+      } else {
+        // Replay mode or grid fallback
+        leftFlow = fly.steer < -0.05 ? Math.min(1, Math.abs(fly.steer) * 2.5 + 0.3) : 0.2;
+        rightFlow = fly.steer > 0.05 ? Math.min(1, Math.abs(fly.steer) * 2.5 + 0.3) : 0.2;
+      }
 
       onTelemetryUpdate({
         currentLapTime: currentStatus === 'RACING' ? fly.currentLapTime : 0,

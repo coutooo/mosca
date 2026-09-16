@@ -383,15 +383,23 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
             <div className="flex items-center justify-between text-[9px] font-mono px-1 text-slate-400">
               <div className="flex items-center gap-1">
                 <span className={`w-1.5 h-1.5 rounded-full ${
-                  (isRacing || isReplaying) && (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
+                  (isRacing || isReplaying) && ((telemetry?.steeringAngle || 0) < -0.05 || (telemetry?.leftEyeOpticalFlow || 0) > 0.35)
+                    ? 'bg-cyan-400 animate-ping'
+                    : 'bg-slate-700'
                 }`} />
-                <span>L. Lobula</span>
+                <span className={(isRacing || isReplaying) && (telemetry?.steeringAngle || 0) < -0.05 ? 'text-cyan-400 font-bold' : ''}>
+                  L. Lobula
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <span className={`w-1.5 h-1.5 rounded-full ${
-                  (isRacing || isReplaying) && (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
+                  (isRacing || isReplaying) && ((telemetry?.steeringAngle || 0) > 0.05 || (telemetry?.rightEyeOpticalFlow || 0) > 0.35)
+                    ? 'bg-purple-400 animate-ping'
+                    : 'bg-slate-700'
                 }`} />
-                <span>R. Lobula</span>
+                <span className={(isRacing || isReplaying) && (telemetry?.steeringAngle || 0) > 0.05 ? 'text-purple-400 font-bold' : ''}>
+                  R. Lobula
+                </span>
               </div>
               <div className="flex items-center gap-1">
                 <span className={`w-1.5 h-1.5 rounded-full ${
