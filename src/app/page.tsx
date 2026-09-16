@@ -1,20 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RacingTelemetry, TrackRecord, RaceStatus, FlyCompetitor } from '@/types/racing';
 import { RaceTrackCanvas } from '@/components/RaceTrackCanvas';
 import { TrackRecordHUD } from '@/components/TrackRecordHUD';
 import { Brain3D } from '@/components/Brain3D';
-import { calculateNextRaceCountdown } from '@/lib/raceSchedule';
+import { calculateNextRaceCountdown, formatCountdown } from '@/lib/raceSchedule';
 import { clearStoredRecords } from '@/lib/racingConnectome';
+import { formatLapTime } from '@/lib/trackData';
 import {
   Trophy,
   Share2,
   Check,
   Sparkles,
+  Clock,
+  Video,
+  Square,
+  Activity,
   Zap,
-  Eye,
-  Flag,
 } from 'lucide-react';
 
 export default function Home() {
@@ -29,18 +32,18 @@ export default function Home() {
   const [secondsUntilNext, setSecondsUntilNext] = useState<number>(180);
   const [eventName, setEventName] = useState<string>('Monaco Drosophila Grand Prix');
 
-  // Replay of last run state
+  // Replay state
   const [hasReplay, setHasReplay] = useState<boolean>(false);
   const [isReplaying, setIsReplaying] = useState<boolean>(false);
 
-  // Master countdown timer
+  // Master countdown timer (runs every second)
   useEffect(() => {
     const timer = setInterval(() => {
       const { secondsUntil, eventName: name } = calculateNextRaceCountdown();
       setSecondsUntilNext(secondsUntil);
       setEventName(name);
 
-      // If scheduled time arrives and we are currently waiting -> trigger race!
+      // Trigger scheduled race when time arrives
       if (secondsUntil <= 1 && raceStatus === 'WAITING' && !isReplaying) {
         startRaceSequence();
       }
@@ -106,7 +109,7 @@ export default function Home() {
 Runs only during scheduled Grand Prix heats. Powered by Janelia biological connectome:
 
 #DrosophilaGrandPrix #Neuroscience #AutonomousAI #TechTwitter`
-    : `Watching a 165,122-neuron fruit fly compete in scheduled Grand Prix races! 🪰🏁`;
+    : `Watching 4 autonomous 165,122-neuron fruit flies race in scheduled Grand Prix heats! 🪰🏁`;
 
   const handleShareTwitter = () => {
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
@@ -120,101 +123,192 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
   };
 
   const activeFly = telemetry?.competitors?.find((c) => c.id === focusedFlyId);
+  const currentLapTime = telemetry?.currentLapTime || 0;
+  const isRacing = raceStatus === 'RACING';
 
   return (
-    <div className="w-full flex flex-col items-center py-6 px-4 sm:px-6 max-w-6xl mx-auto gap-6">
-      {/* Sleek Racing Header */}
-      <header className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-purple-600/20 to-pink-500/20 border border-cyan-500/40 flex items-center justify-center text-2xl shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+    <main className="h-screen w-screen max-h-screen overflow-hidden bg-[#050811] text-slate-100 flex flex-col p-2.5 sm:p-3 select-none">
+      {/* 1. Sleek Minimalist Top Header */}
+      <header className="h-11 shrink-0 flex items-center justify-between border-b border-slate-800/80 px-1 pb-2">
+        {/* Left: Branding */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 via-purple-600/20 to-pink-500/20 border border-cyan-500/40 flex items-center justify-center text-sm shadow">
             🪰
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                <span>DROSOPHILA GRAND PRIX</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  4-FLY SCHEDULED RACES
-                </span>
-              </h1>
-            </div>
-            <p className="text-xs text-slate-400 font-mono">
-              4 Autonomous Flies Racing • 165,122 Biological Neurons • Scheduled Grand Prix Heats
-            </p>
-          </div>
-        </div>
-
-        {/* Share & Social Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleCopyText}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-semibold bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition-all"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied!' : 'Copy Telemetry'}</span>
-          </button>
-          <button
-            onClick={handleShareTwitter}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-mono font-bold bg-gradient-to-r from-cyan-500 to-sky-400 hover:from-cyan-400 hover:to-sky-300 text-slate-950 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all"
-          >
-            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-            </svg>
-            <span>Share Record on X</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Arena: The Circuit (Left) + The Live 3D Connectome (Right) */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        
-        {/* Track Canvas Column */}
-        <div className="w-full lg:col-span-2 flex flex-col gap-3">
-          <RaceTrackCanvas
-            raceStatus={raceStatus}
-            startingLightsCount={startingLightsCount}
-            isReplaying={isReplaying}
-            onReplayFinished={() => setIsReplaying(false)}
-            onHasReplayChange={setHasReplay}
-            onTelemetryUpdate={handleTelemetryUpdate}
-            onNewRecord={handleNewRecord}
-            onRaceFinished={handleRaceFinished}
-            focusedFlyId={focusedFlyId}
-            totalRaceLaps={2}
-          />
-
-          <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-2">
-            <span>Circuit Length: 420m • 4 Staggered Grid Slots • 12 Sectors</span>
-            <span className="text-cyan-400">
-              {isReplaying
-                ? '📹 4-Fly Instant Replay Playback'
-                : raceStatus === 'RACING'
-                ? '● Official Heat In Progress'
-                : 'Grid Standby • Next Heat Scheduled'}
+          <div className="flex items-baseline gap-2">
+            <h1 className="text-sm sm:text-base font-black tracking-tight text-white font-mono">
+              DROSOPHILA GRAND PRIX
+            </h1>
+            <span className="text-[10px] font-mono text-slate-500 hidden md:inline">
+              165,122 Neurons • 4 Autonomous Flies
             </span>
           </div>
         </div>
 
-        {/* 3D Brain Telemetry Column */}
-        <div className="w-full flex flex-col gap-4">
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-xl flex flex-col gap-3">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-              <div className="flex flex-col">
-                <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>3D CONNECTOME</span>
+        {/* Center: Live Schedule / Race Status */}
+        <div className="flex items-center gap-2">
+          {isReplaying ? (
+            <div className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-bold flex items-center gap-1.5 shadow animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span>INSTANT REPLAY</span>
+            </div>
+          ) : isRacing ? (
+            <div className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono font-black flex items-center gap-1.5 shadow animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>OFFICIAL RACE IN PROGRESS</span>
+            </div>
+          ) : raceStatus === 'STARTING_LIGHTS' ? (
+            <div className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[11px] font-mono font-black flex items-center gap-1.5 shadow animate-bounce">
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+              <span>STARTING LIGHTS...</span>
+            </div>
+          ) : (
+            <div className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono flex items-center gap-1.5">
+              <Clock className="w-3 h-3 text-amber-400" />
+              <span className="text-slate-400">NEXT HEAT:</span>
+              <span className="font-bold text-amber-400">{formatCountdown(secondsUntilNext)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-1.5">
+          {hasReplay && !isRacing && raceStatus !== 'STARTING_LIGHTS' && (
+            <button
+              onClick={() => setIsReplaying(!isReplaying)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1 shadow-sm ${
+                isReplaying
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800'
+              }`}
+            >
+              {isReplaying ? (
+                <>
+                  <Square className="w-3 h-3 fill-current" />
+                  <span>Exit</span>
+                </>
+              ) : (
+                <>
+                  <Video className="w-3 h-3" />
+                  <span>Replay</span>
+                </>
+              )}
+            </button>
+          )}
+
+          <button
+            onClick={handleCopyText}
+            className="px-2 py-1 rounded-lg text-xs font-mono text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
+            title="Copy Telemetry"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            onClick={handleShareTwitter}
+            className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+            <span className="hidden sm:inline">Post</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 2. Main Cockpit Arena: Track on Left, Live Telemetry Stack on Right */}
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2.5 pt-2">
+        
+        {/* Left Column: Track Canvas + Bottom Telemetry Strip */}
+        <div className="lg:col-span-8 flex flex-col h-full min-h-0 gap-2">
+          {/* Canvas Wrapper */}
+          <div className="flex-1 min-h-0 relative">
+            <RaceTrackCanvas
+              raceStatus={raceStatus}
+              startingLightsCount={startingLightsCount}
+              isReplaying={isReplaying}
+              onReplayFinished={() => setIsReplaying(false)}
+              onHasReplayChange={setHasReplay}
+              onTelemetryUpdate={handleTelemetryUpdate}
+              onNewRecord={handleNewRecord}
+              onRaceFinished={handleRaceFinished}
+              focusedFlyId={focusedFlyId}
+              totalRaceLaps={2}
+            />
+          </div>
+
+          {/* Minimalist Bottom Telemetry Strip */}
+          <div className="h-9 shrink-0 flex items-center justify-between px-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs font-mono">
+            {/* Record */}
+            <div className="flex items-center gap-2">
+              <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-slate-400 text-[11px]">RECORD:</span>
+              <span className="font-bold text-white">
+                {telemetry?.lapRecord ? telemetry.lapRecord.formattedTime : '--:--.---'}
+              </span>
+              {telemetry?.lapRecord?.holderName && (
+                <span className="text-[10px] text-slate-500 hidden sm:inline">
+                  ({telemetry.lapRecord.holderName})
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  {activeFly?.name || 'Janelia Red'} (P{activeFly?.rank || 1})
+              )}
+            </div>
+
+            {/* Live Lap & Speed */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-cyan-400 shrink-0" />
+                <span className="font-bold text-cyan-300">
+                  {isRacing || isReplaying ? formatLapTime(currentLapTime) : '00:00.000'}
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-cyan-400 font-bold">
-                {raceStatus === 'RACING' || isReplaying ? `${telemetry?.speed || 0} cm/s` : 'IDLE MEMBRANE'}
+              <span className="text-slate-700">|</span>
+              <div className="flex items-center gap-1 text-[11px]">
+                <span className="text-slate-500">SPD</span>
+                <span className="font-bold text-white">{telemetry?.speed || 0}</span>
+                <span className="text-[9px] text-slate-500">cm/s</span>
+              </div>
+              <span className="text-slate-700">|</span>
+              <div className="flex items-center gap-1 text-[11px]">
+                <span className="text-slate-500">G</span>
+                <span className="font-bold text-white">{telemetry?.gForce || 0}</span>
+              </div>
+            </div>
+
+            {/* Optic Flow Meter */}
+            <div className="flex items-center gap-2 text-[10px] text-slate-400">
+              <span className="hidden sm:inline">RAY FLOW</span>
+              <div className="w-14 h-1.5 bg-slate-950 rounded-full flex overflow-hidden">
+                <div
+                  className="h-full bg-cyan-400 transition-all duration-75"
+                  style={{ width: `${(telemetry?.leftEyeOpticalFlow || 0.5) * 50}%` }}
+                />
+                <div className="w-0.5 h-full bg-slate-800" />
+                <div
+                  className="h-full bg-purple-500 transition-all duration-75 ml-auto"
+                  style={{ width: `${(telemetry?.rightEyeOpticalFlow || 0.5) * 50}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: 3D Connectome + Timing Tower + Session Records */}
+        <div className="lg:col-span-4 flex flex-col h-full min-h-0 gap-2 overflow-hidden justify-between">
+          
+          {/* Card 1: 3D Connectome (Compact) */}
+          <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 shrink-0 flex flex-col gap-1.5 shadow">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
+              <span className="text-[11px] font-mono font-bold text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-cyan-400" />
+                <span>3D CONNECTOME</span>
+              </span>
+              <span className="text-[10px] font-mono text-cyan-400">
+                {activeFly?.name || 'Janelia Red'} (P{activeFly?.rank || 1})
               </span>
             </div>
 
-            {/* Competitor Selector Quick Tabs */}
-            <div className="flex items-center gap-1 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+            {/* 4 Competitor Selector Buttons */}
+            <div className="flex items-center gap-1 p-0.5 bg-slate-950/80 rounded-lg border border-slate-800">
               {[
                 { id: 'fly-1', label: 'Janelia', color: '#ff2a4b' },
                 { id: 'fly-2', label: 'Fly-Zero', color: '#22d3ee' },
@@ -224,10 +318,10 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
                 <button
                   key={f.id}
                   onClick={() => setFocusedFlyId(f.id)}
-                  className={`flex-1 py-1 px-1 rounded-lg text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition-all ${
+                  className={`flex-1 py-0.5 px-1 rounded text-[9px] font-mono font-bold flex items-center justify-center gap-1 transition-all ${
                     focusedFlyId === f.id
                       ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                      : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: f.color }} />
@@ -236,109 +330,62 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
               ))}
             </div>
 
-            <div className="w-full h-[210px] rounded-xl bg-slate-950/80 border border-slate-800/80 overflow-hidden">
+            {/* Brain Canvas */}
+            <div className="w-full h-[110px] rounded-lg bg-slate-950/80 border border-slate-800/60 overflow-hidden">
               <Brain3D
-                steeringAngle={raceStatus === 'RACING' || isReplaying ? (telemetry?.steeringAngle || 0) : 0}
-                speed={raceStatus === 'RACING' || isReplaying ? (telemetry?.speed || 0) : 0}
+                steeringAngle={isRacing || isReplaying ? (telemetry?.steeringAngle || 0) : 0}
+                speed={isRacing || isReplaying ? (telemetry?.speed || 0) : 0}
                 dopamineSurge={telemetry?.dopamineSurge || false}
                 painShock={telemetry?.painShock || false}
-                leftFlow={raceStatus === 'RACING' || isReplaying ? (telemetry?.leftEyeOpticalFlow || 0.5) : 0.2}
-                rightFlow={raceStatus === 'RACING' || isReplaying ? (telemetry?.rightEyeOpticalFlow || 0.5) : 0.2}
-                height={210}
+                leftFlow={isRacing || isReplaying ? (telemetry?.leftEyeOpticalFlow || 0.5) : 0.2}
+                rightFlow={isRacing || isReplaying ? (telemetry?.rightEyeOpticalFlow || 0.5) : 0.2}
+                height={110}
               />
             </div>
 
-            {/* Neural Cluster Live Status */}
-            <div className="flex flex-col gap-2 font-mono text-[11px] pt-1">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${
-                    (raceStatus === 'RACING' || isReplaying) && (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
-                  }`} />
-                  <span>Left Lobula (L. Turn)</span>
-                </span>
-                <span className="font-bold text-cyan-400">
-                  {raceStatus === 'RACING' || isReplaying ? `${Math.round((telemetry?.leftEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
-                </span>
+            {/* Neural Cluster Live Status Strip */}
+            <div className="flex items-center justify-between text-[9px] font-mono px-1 text-slate-400">
+              <div className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  (isRacing || isReplaying) && (telemetry?.steeringAngle || 0) < -0.2 ? 'bg-cyan-400 animate-ping' : 'bg-slate-700'
+                }`} />
+                <span>L. Lobula</span>
               </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${
-                    (raceStatus === 'RACING' || isReplaying) && (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
-                  }`} />
-                  <span>Right Lobula (R. Turn)</span>
-                </span>
-                <span className="font-bold text-purple-400">
-                  {raceStatus === 'RACING' || isReplaying ? `${Math.round((telemetry?.rightEyeOpticalFlow || 0.5) * 100)}% Excitatory` : 'Resting'}
-                </span>
+              <div className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  (isRacing || isReplaying) && (telemetry?.steeringAngle || 0) > 0.2 ? 'bg-purple-400 animate-ping' : 'bg-slate-700'
+                }`} />
+                <span>R. Lobula</span>
               </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
-                <span className="text-slate-400 flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${
-                    telemetry?.dopamineSurge ? 'bg-pink-400 animate-ping' : 'bg-slate-700'
-                  }`} />
-                  <span>Mushroom Body</span>
-                </span>
-                <span className={`font-bold ${telemetry?.dopamineSurge ? 'text-pink-400 font-black' : 'text-slate-500'}`}>
-                  {telemetry?.dopamineSurge ? '🍬 +DOPAMINE SURGE' : 'Baseline Plasticity'}
+              <div className="flex items-center gap-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  telemetry?.dopamineSurge ? 'bg-pink-400 animate-ping' : 'bg-slate-700'
+                }`} />
+                <span className={telemetry?.dopamineSurge ? 'text-pink-400 font-bold' : ''}>
+                  {telemetry?.dopamineSurge ? '+Dopamine' : 'Mushroom Body'}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Card 2 & 3: Timing Tower + Session Records */}
+          <div className="flex-1 min-h-0 flex flex-col justify-between">
+            <TrackRecordHUD
+              raceStatus={raceStatus}
+              secondsUntilNextEvent={secondsUntilNext}
+              eventName={eventName}
+              hasReplay={hasReplay}
+              isReplaying={isReplaying}
+              onToggleReplay={() => setIsReplaying(!isReplaying)}
+              telemetry={telemetry}
+              newRecordAlert={newRecordAlert}
+              focusedFlyId={focusedFlyId}
+              onSelectFly={setFocusedFlyId}
+              onClearHistory={handleClearHistory}
+            />
+          </div>
         </div>
       </div>
-
-      {/* Track Records, Live Deltas, and Scheduled Races Board */}
-      <div className="w-full">
-        <TrackRecordHUD
-          raceStatus={raceStatus}
-          secondsUntilNextEvent={secondsUntilNext}
-          eventName={eventName}
-          hasReplay={hasReplay}
-          isReplaying={isReplaying}
-          onToggleReplay={() => setIsReplaying(!isReplaying)}
-          telemetry={telemetry}
-          newRecordAlert={newRecordAlert}
-          focusedFlyId={focusedFlyId}
-          onSelectFly={setFocusedFlyId}
-          onClearHistory={handleClearHistory}
-        />
-      </div>
-
-      {/* Explainer / Science Behind The Self-Driving Fly */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-800">
-        <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold">
-            <Eye className="w-4 h-4" />
-            <span>Elementary Motion Detectors (EMD)</span>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            The fly’s ommatidia compound eyes measure optical flow. When a barrier approaches on the left, high-frequency spikes in the left lobula plate trigger rightward counter-steering.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-pink-400 text-xs font-mono font-bold">
-            <Zap className="w-4 h-4" />
-            <span>Mushroom Body Plasticity</span>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            Every clean sector and completed lap triggers natural dopamine release in Kenyon cell alpha-lobes. Crashing activates the Giant Fiber nociception circuit, pruning bad trajectory weights.
-          </p>
-        </div>
-
-        <div className="p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-amber-400 text-xs font-mono font-bold">
-            <Trophy className="w-4 h-4" />
-            <span>Scheduled Grand Prix Heats</span>
-          </div>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            The fly remains parked on the starting line between heats. When the scheduled time arrives (or when triggered manually), the starting lights extinguish and the official 2-lap race begins!
-          </p>
-        </div>
-      </div>
-    </div>
+    </main>
   );
 }

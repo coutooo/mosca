@@ -2,9 +2,7 @@
 
 import React from 'react';
 import { RacingTelemetry, TrackRecord, RaceStatus } from '@/types/racing';
-import { formatCountdown } from '@/lib/raceSchedule';
-import { formatLapTime } from '@/lib/trackData';
-import { Trophy, Clock, Flag, Activity, Video, Square, Flame, Zap, Trash2 } from 'lucide-react';
+import { Trophy, Trash2, Flame } from 'lucide-react';
 
 interface TrackRecordHUDProps {
   raceStatus: RaceStatus;
@@ -21,12 +19,6 @@ interface TrackRecordHUDProps {
 }
 
 export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
-  raceStatus,
-  secondsUntilNextEvent,
-  eventName,
-  hasReplay,
-  isReplaying,
-  onToggleReplay,
   telemetry,
   newRecordAlert,
   focusedFlyId = 'fly-1',
@@ -34,361 +26,140 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   onClearHistory,
 }) => {
   const record = telemetry?.lapRecord;
-  const currentLap = telemetry?.currentLapTime || 0;
-  const lastLap = telemetry?.lastLapTime;
-
-  const delta = record ? currentLap - record.lapTime : 0;
-  const isAhead = record ? delta < 0 : false;
+  const competitors = telemetry?.competitors || [];
+  const recentRecords = telemetry?.recentRecords || [];
 
   return (
-    <div className="w-full flex flex-col gap-4">
-      {/* Top Banner: Scheduled Race Event Countdown & Replay Trigger */}
-      <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-slate-900/90 via-slate-900/95 to-slate-950/90 border border-slate-800 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-bold text-lg shadow ${
-            isReplaying
-              ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 animate-pulse'
-              : raceStatus === 'RACING'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse'
-              : raceStatus === 'STARTING_LIGHTS'
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-ping'
-              : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-          }`}>
-            <Flag className="w-5 h-5" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold text-slate-200 uppercase tracking-wider">
-                {eventName}
-              </span>
-              {isReplaying ? (
-                <span className="px-2.5 py-0.5 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-mono font-black shadow animate-pulse">
-                  📹 INSTANT REPLAY PLAYBACK
-                </span>
-              ) : raceStatus === 'RACING' ? (
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-mono font-black animate-pulse shadow">
-                  ● OFFICIAL RACE ACTIVE
-                </span>
-              ) : raceStatus === 'STARTING_LIGHTS' ? (
-                <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-mono font-black animate-bounce shadow">
-                  🚦 STARTING LIGHTS...
-                </span>
-              ) : (
-                <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-amber-300 text-[10px] font-mono border border-slate-700">
-                  GRID STANDBY (NEXT HEAT AUTOMATIC)
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-400 font-mono">
-              Live broadcast • The fly races automatically when the scheduled time arrives
-            </p>
-          </div>
-        </div>
-
-        {/* Right Section: Countdown & Replay Button */}
-        <div className="flex items-center gap-3">
-          {/* Replay of Last Run Button */}
-          {hasReplay && raceStatus !== 'RACING' && raceStatus !== 'STARTING_LIGHTS' && (
-            <button
-              onClick={onToggleReplay}
-              className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 shadow ${
-                isReplaying
-                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.4)]'
-                  : 'bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 hover:border-cyan-500/50'
-              }`}
-            >
-              {isReplaying ? (
-                <>
-                  <Square className="w-3.5 h-3.5 fill-current" />
-                  <span>Exit Replay</span>
-                </>
-              ) : (
-                <>
-                  <Video className="w-3.5 h-3.5" />
-                  <span>Watch Replay of Last Run</span>
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Countdown Clock */}
-          {!isReplaying && raceStatus === 'WAITING' && (
-            <div className="flex flex-col items-end font-mono">
-              <span className="text-[10px] text-slate-500 uppercase">NEXT OFFICIAL HEAT IN</span>
-              <span className="text-xl font-black text-amber-400 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span>{formatCountdown(secondsUntilNextEvent)}</span>
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Track Record Board */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* 1. All-Time Lap Record Card */}
-        <div className="relative p-5 rounded-2xl bg-gradient-to-b from-amber-950/25 via-slate-900 to-slate-950/90 border border-amber-500/40 shadow-[0_0_25px_rgba(245,158,11,0.15)] flex flex-col justify-between overflow-hidden">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span>CIRCUIT LAP RECORD</span>
-            </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              TARGET TIME
-            </span>
-          </div>
-
-          <div className="my-3">
-            <span className="text-4xl sm:text-5xl font-black tracking-tight text-white font-mono">
-              {record ? record.formattedTime : '--:--.---'}
-            </span>
-            <div className="flex items-center gap-3 text-xs font-mono text-slate-400 mt-1">
-              <span>Top Speed: <b className="text-slate-200">{record ? `${record.topSpeed} cm/s` : '--'}</b></span>
-              <span>•</span>
-              <span>Gen: <b className="text-slate-200">#{record?.generation || 0}</b></span>
-            </div>
-          </div>
-
-          <div className="text-[10px] font-mono text-slate-500 pt-2 border-t border-slate-800/80 flex items-center justify-between">
-            <span>Set at: {record?.date || 'Waiting for first heat'}</span>
-            <span className="text-amber-400 font-semibold">165,122 Neurons</span>
-          </div>
-        </div>
-
-        {/* 2. Current Race Heat & Delta Card */}
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 shadow flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-cyan-400" />
-              <span>{isReplaying ? 'REPLAY LAP TIME' : 'CURRENT HEAT LAP TIME'}</span>
-            </span>
-            {record && (raceStatus === 'RACING' || isReplaying) && (
-              <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
-                isAhead ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-400'
-              }`}>
-                {isAhead ? `DELTA: ${delta.toFixed(2)}s` : `+${delta.toFixed(2)}s`}
-              </span>
-            )}
-          </div>
-
-          <div className="my-3">
-            <span className="text-4xl sm:text-5xl font-black tracking-tight text-cyan-300 font-mono">
-              {(raceStatus === 'RACING' || isReplaying) ? formatLapTime(currentLap) : '--:--.---'}
-            </span>
-            <div className="flex items-center gap-3 text-xs font-mono text-slate-400 mt-1">
-              <span>Last Completed Lap: <b className="text-slate-200">{lastLap ? formatLapTime(lastLap) : '--'}</b></span>
-            </div>
-          </div>
-
-          <div className="text-[10px] font-mono text-slate-500 pt-2 border-t border-slate-800/80 flex items-center justify-between">
-            <span>Laps: {telemetry?.totalLaps || 0}</span>
-            <span>Total Crashes: {telemetry?.totalCrashes || 0}</span>
-          </div>
-        </div>
-
-        {/* 3. Live Flight Telemetry */}
-        <div className="p-5 rounded-2xl bg-slate-900/60 border border-slate-800 shadow flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-purple-400" />
-              <span>FLIGHT TELEMETRY</span>
-            </span>
-            <span className="text-[10px] font-mono text-slate-500">
-              {(raceStatus === 'RACING' || isReplaying) ? 'LIVE TRACKING' : 'IDLE / PADDOCK'}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 my-2 font-mono">
-            <div className="p-2 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-[10px] text-slate-400 block">Speed</span>
-              <span className="text-xl font-bold text-white flex items-baseline gap-1">
-                {telemetry?.speed || 0}
-                <span className="text-[10px] font-normal text-slate-500">cm/s</span>
-              </span>
-            </div>
-
-            <div className="p-2 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-[10px] text-slate-400 block">G-Force</span>
-              <span className="text-xl font-bold text-white flex items-baseline gap-1">
-                {telemetry?.gForce || 0}
-                <span className="text-[10px] font-normal text-slate-500">G</span>
-              </span>
-            </div>
-          </div>
-
-          {/* Optical Flow Balance */}
-          <div className="pt-2 border-t border-slate-800/80 flex flex-col gap-1 text-[10px] font-mono">
-            <div className="flex justify-between text-slate-400">
-              <span>L. Eye Ray Flow</span>
-              <span>R. Eye Ray Flow</span>
-            </div>
-            <div className="w-full h-1.5 bg-slate-950 rounded-full flex overflow-hidden">
-              <div
-                className="h-full bg-cyan-400 transition-all duration-75"
-                style={{ width: `${(telemetry?.leftEyeOpticalFlow || 0.5) * 50}%` }}
-              />
-              <div className="w-1 h-full bg-slate-800" />
-              <div
-                className="h-full bg-purple-500 transition-all duration-75 ml-auto"
-                style={{ width: `${(telemetry?.rightEyeOpticalFlow || 0.5) * 50}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 4-Fly Grand Prix Live Leaderboard & Connectome Link */}
-      {telemetry?.competitors && telemetry.competitors.length > 0 && (
-        <div className="w-full p-4 rounded-2xl bg-slate-900/70 border border-slate-800 flex flex-col gap-3 shadow-lg">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-mono">
-            <span className="font-bold text-slate-200 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span>4-FLY LIVE GRID LEADERBOARD</span>
-            </span>
-            <span className="text-[11px] text-slate-400">
-              Click a fly to stream its 165,122-neuron connectome & vision rays
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {telemetry.competitors.map((comp) => {
-              const isFocused = comp.id === focusedFlyId;
-              const rankColor =
-                comp.rank === 1
-                  ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
-                  : comp.rank === 2
-                  ? 'text-slate-200 border-slate-400/40 bg-slate-400/10'
-                  : comp.rank === 3
-                  ? 'text-amber-600 border-amber-600/40 bg-amber-600/10'
-                  : 'text-slate-500 border-slate-700 bg-slate-800/40';
-
-              return (
-                <div
-                  key={comp.id}
-                  onClick={() => onSelectFly?.(comp.id)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
-                    isFocused
-                      ? 'bg-slate-800/90 border-cyan-500/80 shadow-[0_0_15px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/50'
-                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-black border ${rankColor}`}>
-                        P{comp.rank}
-                      </span>
-                      <div
-                        className="w-3.5 h-3.5 rounded-full shadow-sm"
-                        style={{ backgroundColor: comp.color, boxShadow: `0 0 8px ${comp.color}` }}
-                      />
-                    </div>
-                    <span className="font-mono text-[11px] text-slate-400 font-semibold">
-                      {comp.gap}
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="font-mono font-bold text-sm text-white truncate">
-                      {comp.name}
-                    </div>
-                    <div className="font-mono text-[10px] text-slate-400 truncate">
-                      {comp.team}
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-slate-800/70 flex items-center justify-between font-mono text-[10px]">
-                    <span className="text-slate-400">
-                      Best: <b className="text-slate-200">{comp.bestLap}</b>
-                    </span>
-                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
-                      isFocused
-                        ? 'bg-cyan-500 text-slate-950 font-black'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {isFocused ? '🧠 BRAIN ACTIVE' : 'INSPECT'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* New Lap Record Notification */}
+    <div className="flex flex-col gap-2.5 w-full">
+      {/* New Lap Record Notification Pill */}
       {newRecordAlert && (
-        <div className="w-full p-4 rounded-2xl bg-gradient-to-r from-amber-500 via-pink-500 to-cyan-400 text-slate-950 font-bold shadow-[0_0_30px_rgba(245,158,11,0.5)] flex items-center justify-between animate-in bounce-in">
-          <div className="flex items-center gap-3">
-            <Flame className="w-6 h-6 fill-current animate-bounce" />
-            <div>
-              <div className="text-sm uppercase tracking-wide font-black">
-                🔥 NEW CIRCUIT RECORD BROKEN BY THE FLY!
-              </div>
-              <div className="text-xs font-mono font-semibold">
-                Lap Time: {newRecordAlert.formattedTime} (Top Speed: {newRecordAlert.topSpeed} cm/s)
-              </div>
-            </div>
+        <div className="w-full px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-cyan-400 text-slate-950 font-bold text-xs shadow-[0_0_20px_rgba(245,158,11,0.4)] flex items-center justify-between animate-pulse">
+          <div className="flex items-center gap-2 truncate">
+            <Flame className="w-3.5 h-3.5 fill-current" />
+            <span className="font-black truncate">
+              NOVO RECORDE: {newRecordAlert.formattedTime} ({newRecordAlert.holderName || 'Janelia Red'})
+            </span>
           </div>
-          <span className="px-3 py-1 rounded-xl bg-slate-950 text-white font-mono text-xs font-black shadow">
-            GEN #{newRecordAlert.generation}
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950 text-white shrink-0">
+            {newRecordAlert.topSpeed} cm/s
           </span>
         </div>
       )}
 
-      {/* Recent Records History Table / Clean Slate State */}
-      <div className="w-full p-4 rounded-2xl bg-slate-900/40 border border-slate-800 flex flex-col gap-2.5">
-        <div className="flex items-center justify-between text-xs font-mono text-slate-400 px-1">
-          <span className="font-bold text-slate-200">RECENT OFFICIAL LAPS & LEARNING PROGRESSION</span>
-          <div className="flex items-center gap-3">
-            {telemetry?.recentRecords && telemetry.recentRecords.length > 0 && onClearHistory && (
-              <button
-                onClick={onClearHistory}
-                className="flex items-center gap-1.5 text-[11px] font-mono text-rose-400 hover:text-rose-300 transition-colors px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/40 shadow-sm"
+      {/* 4-Fly Timing Tower */}
+      <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 shadow flex flex-col gap-2">
+        <div className="flex items-center justify-between text-[11px] font-mono">
+          <span className="font-bold text-slate-200 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>TIMING TOWER • P1–P4</span>
+          </span>
+          <span className="text-[10px] text-slate-400">Click to focus brain</span>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          {competitors.map((comp) => {
+            const isFocused = comp.id === focusedFlyId;
+            const rankStyle =
+              comp.rank === 1
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : comp.rank === 2
+                ? 'bg-slate-300/10 text-slate-200 border-slate-400/30'
+                : comp.rank === 3
+                ? 'bg-amber-700/20 text-amber-500 border-amber-600/30'
+                : 'bg-slate-800/50 text-slate-400 border-slate-700';
+
+            return (
+              <div
+                key={comp.id}
+                onClick={() => onSelectFly?.(comp.id)}
+                className={`px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between text-xs font-mono ${
+                  isFocused
+                    ? 'bg-slate-800/90 border-cyan-500/70 shadow-[0_0_12px_rgba(6,182,212,0.2)] ring-1 ring-cyan-500/40'
+                    : 'bg-slate-950/50 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
+                }`}
               >
-                <Trash2 className="w-3 h-3" />
-                <span>Limpar Histórico</span>
-              </button>
-            )}
-            <span className="hidden sm:inline">AUTONOMOUS CONNECTOME TELEMETRY</span>
+                {/* Left: Rank & Driver */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`w-5 h-5 rounded flex items-center justify-center font-black text-[10px] border ${rankStyle}`}>
+                    P{comp.rank}
+                  </span>
+                  <div
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: comp.color, boxShadow: `0 0 6px ${comp.color}` }}
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-white text-[11px] truncate leading-tight">
+                      {comp.name}
+                    </span>
+                    <span className="text-[9px] text-slate-400 truncate leading-tight">
+                      {comp.team}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right: Gap, Speed & Active Tag */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-col items-end text-[10px]">
+                    <span className={comp.rank === 1 ? 'text-amber-400 font-bold' : 'text-slate-300'}>
+                      {comp.gap}
+                    </span>
+                    <span className="text-slate-500 text-[9px]">{comp.bestLap}</span>
+                  </div>
+                  {isFocused && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" title="Connectome Linked" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Circuit Lap Records & History (Compact) */}
+      <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 shadow flex flex-col gap-2">
+        <div className="flex items-center justify-between text-[11px] font-mono">
+          <span className="font-bold text-slate-200 flex items-center gap-1.5">
+            <Trophy className="w-3 h-3 text-amber-400" />
+            <span>CIRCUIT RECORDS</span>
+          </span>
+          {recentRecords.length > 0 && onClearHistory && (
+            <button
+              onClick={onClearHistory}
+              className="flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-300 px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/40 transition-colors"
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+              <span>Limpar</span>
+            </button>
+          )}
+        </div>
+
+        {/* All-time record banner */}
+        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-950/60 border border-amber-500/20 font-mono">
+          <div className="flex flex-col">
+            <span className="text-[9px] text-amber-400 uppercase tracking-wide">ALL-TIME BEST</span>
+            <span className="text-sm font-black text-white">
+              {record ? record.formattedTime : '--:--.---'}
+            </span>
+          </div>
+          <div className="flex flex-col items-end text-[10px] text-slate-400">
+            <span>{record?.holderName || 'Pendente'}</span>
+            <span className="text-[9px] text-slate-500">{record ? `${record.topSpeed} cm/s` : '--'}</span>
           </div>
         </div>
 
-        {telemetry?.recentRecords && telemetry.recentRecords.length > 0 ? (
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-left font-mono text-xs">
-              <thead>
-                <tr className="text-slate-500 border-b border-slate-800 text-[10px]">
-                  <th className="py-2 px-3">HEAT</th>
-                  <th className="py-2 px-3">FLY COMPETITOR</th>
-                  <th className="py-2 px-3">LAP TIME</th>
-                  <th className="py-2 px-3">TOP SPEED</th>
-                  <th className="py-2 px-3">TIME RECORDED</th>
-                  <th className="py-2 px-3">MUSHROOM BODY STATUS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {telemetry.recentRecords.map((r, idx) => (
-                  <tr key={idx} className="border-b border-slate-800/40 hover:bg-slate-800/20">
-                    <td className="py-2 px-3 text-slate-400">#{r.generation}</td>
-                    <td className="py-2 px-3 font-semibold text-white">{r.holderName || 'Janelia Red'}</td>
-                    <td className={`py-2 px-3 font-bold ${idx === 0 ? 'text-cyan-300' : 'text-slate-200'}`}>
-                      {r.formattedTime}
-                    </td>
-                    <td className="py-2 px-3 text-slate-400">{r.topSpeed} cm/s</td>
-                    <td className="py-2 px-3 text-slate-500">{r.date}</td>
-                    <td className="py-2 px-3 text-pink-400 flex items-center gap-1">
-                      <Zap className="w-3 h-3 text-pink-400" />
-                      <span>+Dopamine Synaptic Reinforcement</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Mini recent heats history */}
+        {recentRecords.length > 0 ? (
+          <div className="flex flex-col gap-1 font-mono text-[10px]">
+            {recentRecords.slice(0, 2).map((r, i) => (
+              <div key={i} className="flex items-center justify-between px-2 py-1 rounded bg-slate-950/40 text-slate-400">
+                <span className="text-slate-300 truncate">#{r.generation} {r.holderName}</span>
+                <span className="font-bold text-cyan-300">{r.formattedTime}</span>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="py-6 px-4 text-center font-mono text-xs text-slate-500 flex flex-col items-center justify-center gap-1.5 border border-dashed border-slate-800/80 rounded-xl bg-slate-950/40">
-            <span className="text-slate-400 font-semibold">Histórico limpo • Sem voltas gravadas</span>
-            <span className="text-slate-600">A pista está livre. O registo começará no próximo heat oficial de 15 minutos.</span>
+          <div className="py-2 px-2 text-center font-mono text-[10px] text-slate-500 border border-dashed border-slate-800/80 rounded-lg">
+            Histórico limpo • Sem voltas gravadas
           </div>
         )}
       </div>

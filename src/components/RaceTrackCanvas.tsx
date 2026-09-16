@@ -580,29 +580,29 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
   }, [onTelemetryUpdate, onNewRecord, onRaceFinished, totalRaceLaps, startingLightsCount, onReplayFinished, onHasReplayChange]);
 
   return (
-    <div className="w-full flex flex-col items-center gap-3">
-      <div className="relative w-full rounded-2xl overflow-hidden bg-[#060a12] border border-slate-800 shadow-[0_0_35px_rgba(0,0,0,0.8)]">
+    <div className="w-full h-full min-h-0 flex flex-col items-center justify-center">
+      <div className="relative w-full h-full min-h-0 rounded-2xl overflow-hidden bg-[#060a12] border border-slate-800/80 shadow-[0_0_35px_rgba(0,0,0,0.8)] flex items-center justify-center">
         <canvas
           ref={canvasRef}
           width={900}
           height={550}
-          className="w-full h-auto object-contain block"
+          className="max-w-full max-h-full w-auto h-auto object-contain block aspect-[900/550]"
         />
 
         {/* Top Left Track Badge */}
-        <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none">
-          <div className="px-2.5 py-1 rounded-md bg-slate-950/80 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono text-cyan-400 flex items-center gap-1.5 shadow">
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-2 pointer-events-none">
+          <div className="px-2 py-0.5 rounded-md bg-slate-950/80 backdrop-blur-md border border-cyan-500/30 text-[10px] font-mono text-cyan-400 flex items-center gap-1.5 shadow">
             <span className={`w-1.5 h-1.5 rounded-full ${
               isReplaying ? 'bg-cyan-400 animate-pulse' : raceStatus === 'RACING' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
             }`} />
-            <span>CIRCUIT DE MONACO • 4-FLY GRID</span>
+            <span>MONACO GRAND PRIX • 4-FLY GRID</span>
           </div>
         </div>
 
         {/* Top Right Status */}
-        <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
-          <span className={`w-2 h-2 rounded-full ${isReplaying ? 'bg-cyan-400 animate-ping' : 'bg-rose-500 animate-pulse'}`} />
-          <span>{isReplaying ? '4-FLY REPLAY' : 'LIVE FEED'}</span>
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md px-2 py-0.5 rounded-md border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
+          <span className={`w-1.5 h-1.5 rounded-full ${isReplaying ? 'bg-cyan-400 animate-ping' : 'bg-rose-500 animate-pulse'}`} />
+          <span>{isReplaying ? '4-FLY REPLAY' : 'LIVE BROADCAST'}</span>
         </div>
       </div>
     </div>
