@@ -30,10 +30,10 @@ export const ReplayArchiveModal: React.FC<ReplayArchiveModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-black font-mono text-white">
-                ARQUIVO DE REPLAYS HISTÓRICOS
+                HISTORIC REPLAY ARCHIVES
               </h2>
               <p className="text-[10px] font-mono text-slate-400">
-                Corridas oficiais gravadas (13:00 & 21:00)
+                Recorded official heats (13:00 & 21:00)
               </p>
             </div>
           </div>
@@ -49,7 +49,7 @@ export const ReplayArchiveModal: React.FC<ReplayArchiveModalProps> = ({
         <div className="p-3 max-h-[380px] overflow-y-auto flex flex-col gap-2 font-mono">
           {replays.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500">
-              Nenhuma corrida gravada no arquivo.
+              No recorded races in archive.
             </div>
           ) : (
             replays.map((rep) => (
@@ -69,7 +69,7 @@ export const ReplayArchiveModal: React.FC<ReplayArchiveModalProps> = ({
                       <span className="text-slate-200 font-semibold">{rep.winnerName}</span>
                     </span>
                     <span>•</span>
-                    <span className="text-cyan-300 font-bold">Volta: {rep.bestLap}</span>
+                    <span className="text-cyan-300 font-bold">Lap: {rep.bestLap}</span>
                     <span>•</span>
                     <span className="text-slate-500 text-[10px]">{rep.date}</span>
                   </div>
@@ -83,7 +83,7 @@ export const ReplayArchiveModal: React.FC<ReplayArchiveModalProps> = ({
                   className="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500 text-cyan-300 hover:text-slate-950 font-bold text-xs flex items-center gap-1.5 border border-cyan-500/30 transition-all shrink-0 group-hover:shadow-[0_0_12px_rgba(6,182,212,0.4)]"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Assistir</span>
+                  <span>Watch</span>
                 </button>
               </div>
             ))
@@ -92,8 +92,8 @@ export const ReplayArchiveModal: React.FC<ReplayArchiveModalProps> = ({
 
         {/* Modal Footer */}
         <div className="p-3 bg-slate-950/80 border-t border-slate-800 text-[10px] font-mono text-slate-500 flex items-center justify-between">
-          <span>{replays.length} corridas disponíveis</span>
-          <span>Física 100% autônoma Drosophila</span>
+          <span>{replays.length} races available</span>
+          <span>100% Autonomous Drosophila Physics</span>
         </div>
       </div>
     </div>

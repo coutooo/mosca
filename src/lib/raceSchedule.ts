@@ -26,7 +26,7 @@ export function calculateNextRaceCountdown(): {
     const diff = heat1Seconds - currentTotalSeconds;
     return {
       secondsUntil: diff,
-      eventName: 'Grand Prix do Meio-Dia (13:00)',
+      eventName: 'Midday Grand Prix (13:00)',
       targetTimeFormatted: '13:00',
     };
   } else if (currentTotalSeconds < heat2Seconds) {
@@ -34,7 +34,7 @@ export function calculateNextRaceCountdown(): {
     const diff = heat2Seconds - currentTotalSeconds;
     return {
       secondsUntil: diff,
-      eventName: 'Grand Prix Noturno (21:00)',
+      eventName: 'Night Grand Prix (21:00)',
       targetTimeFormatted: '21:00',
     };
   } else {
@@ -43,8 +43,8 @@ export function calculateNextRaceCountdown(): {
     const diff = secondsTillMidnight + heat1Seconds;
     return {
       secondsUntil: diff,
-      eventName: 'Grand Prix de Amanhã (13:00)',
-      targetTimeFormatted: 'Amanhã 13:00',
+      eventName: 'Tomorrow Midday GP (13:00)',
+      targetTimeFormatted: 'Tomorrow 13:00',
     };
   }
 }

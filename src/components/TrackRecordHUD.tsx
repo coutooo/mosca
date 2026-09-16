@@ -37,7 +37,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
           <div className="flex items-center gap-2 truncate">
             <Flame className="w-3.5 h-3.5 fill-current" />
             <span className="font-black truncate">
-              NOVO RECORDE: {newRecordAlert.formattedTime} ({newRecordAlert.holderName || 'Janelia Red'})
+              NEW LAP RECORD: {newRecordAlert.formattedTime} ({newRecordAlert.holderName || 'Janelia Red'})
             </span>
           </div>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950 text-white shrink-0">
@@ -127,7 +127,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
               className="flex items-center gap-1 text-[10px] text-rose-400 hover:text-rose-300 px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 hover:border-rose-500/40 transition-colors"
             >
               <Trash2 className="w-2.5 h-2.5" />
-              <span>Limpar</span>
+              <span>Clear</span>
             </button>
           )}
         </div>
@@ -141,7 +141,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
             </span>
           </div>
           <div className="flex flex-col items-end text-[10px] text-slate-400">
-            <span>{record?.holderName || 'Pendente'}</span>
+            <span>{record?.holderName || 'Pending'}</span>
             <span className="text-[9px] text-slate-500">{record ? `${record.topSpeed} cm/s` : '--'}</span>
           </div>
         </div>

@@ -31,7 +31,7 @@ export default function Home() {
   const [raceStatus, setRaceStatus] = useState<RaceStatus>('WAITING');
   const [startingLightsCount, setStartingLightsCount] = useState<number>(0);
   const [secondsUntilNext, setSecondsUntilNext] = useState<number>(3600);
-  const [eventName, setEventName] = useState<string>('Grand Prix do Meio-Dia (13:00)');
+  const [eventName, setEventName] = useState<string>('Midday Grand Prix (13:00)');
   const [targetTimeFormatted, setTargetTimeFormatted] = useState<string>('13:00');
 
   // Replay archive states
@@ -93,8 +93,8 @@ export default function Home() {
   const handleSaveRunReplay = useCallback((frames: MultiFlyFrame[], winner: FlyCompetitor, record: TrackRecord | null) => {
     const newReplay: SavedRaceReplay = {
       id: `replay-${Date.now()}`,
-      title: `${eventName} • Vencedor: ${winner.name}`,
-      date: `Hoje, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      title: `${eventName} • Winner: ${winner.name}`,
+      date: `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       winnerName: winner.name,
       winnerTeam: winner.team,
       winnerColor: winner.eyeColor,
@@ -172,7 +172,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
               DROSOPHILA GRAND PRIX
             </h1>
             <span className="text-[10px] font-mono text-slate-500 hidden md:inline">
-              165,122 Neurons • 2 Corridas Diárias (13:00 & 21:00)
+              165,122 Neurons • 2 Daily Heats (13:00 & 21:00)
             </span>
           </div>
         </div>
@@ -182,7 +182,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
           {isReplaying ? (
             <div className="px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[11px] font-mono font-bold flex items-center gap-1.5 shadow animate-pulse">
               <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span>REPLAY: {selectedReplay?.title || 'CORRIDA GRAVADA'}</span>
+              <span>REPLAY: {selectedReplay?.title || 'SAVED RACE'}</span>
             </div>
           ) : isRacing ? (
             <div className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono font-black flex items-center gap-1.5 shadow animate-pulse">
@@ -197,7 +197,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
           ) : (
             <div className="px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono flex items-center gap-1.5">
               <Clock className="w-3 h-3 text-amber-400" />
-              <span className="text-slate-400">PRÓXIMA CORRIDA ({targetTimeFormatted}):</span>
+              <span className="text-slate-400">NEXT RACE ({targetTimeFormatted}):</span>
               <span className="font-bold text-amber-400">{formatCountdown(secondsUntilNext)}</span>
             </div>
           )}
@@ -211,7 +211,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
             className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-all flex items-center gap-1.5 shadow-sm"
           >
             <History className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Replays Antigos ({savedReplays.length})</span>
+            <span>Past Replays ({savedReplays.length})</span>
           </button>
 
           {isReplaying && (
@@ -223,14 +223,14 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
               className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-rose-600 hover:bg-rose-500 text-white transition-all flex items-center gap-1 shadow-sm"
             >
               <Square className="w-3 h-3 fill-current" />
-              <span>Sair do Replay</span>
+              <span>Exit Replay</span>
             </button>
           )}
 
           <button
             onClick={handleCopyText}
             className="px-2 py-1 rounded-lg text-xs font-mono text-slate-400 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
-            title="Copiar Telemetria"
+            title="Copy Telemetry"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
           </button>
@@ -278,7 +278,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
             {/* Record */}
             <div className="flex items-center gap-2">
               <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="text-slate-400 text-[11px]">RECORDE:</span>
+              <span className="text-slate-400 text-[11px]">RECORD:</span>
               <span className="font-bold text-white">
                 {telemetry?.lapRecord ? telemetry.lapRecord.formattedTime : '--:--.---'}
               </span>
@@ -312,7 +312,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
 
             {/* Optic Flow Meter */}
             <div className="flex items-center gap-2 text-[10px] text-slate-400">
-              <span className="hidden sm:inline">ESTRADA LARGA (78px)</span>
+              <span className="hidden sm:inline">WIDE TRACK (78px)</span>
               <div className="w-14 h-1.5 bg-slate-950 rounded-full flex overflow-hidden">
                 <div
                   className="h-full bg-cyan-400 transition-all duration-75"

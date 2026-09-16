@@ -10,7 +10,7 @@ export function getSavedReplays(): SavedRaceReplay[] {
     const raw = localStorage.getItem(REPLAYS_STORAGE_KEY);
     if (!raw) {
       // If empty, generate and store an initial classic race archive
-      const initial = [generatePreRecordedRace('Corrida Histórica • 21:00 (Janelia vs Fly-Zero)')];
+    const initial = [generatePreRecordedRace('Historic Grand Prix • 21:00 (Janelia vs Fly-Zero)')];
       localStorage.setItem(REPLAYS_STORAGE_KEY, JSON.stringify(initial));
       return initial;
     }
@@ -18,7 +18,7 @@ export function getSavedReplays(): SavedRaceReplay[] {
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed;
     }
-    const initial = [generatePreRecordedRace('Corrida Histórica • 21:00 (Janelia vs Fly-Zero)')];
+    const initial = [generatePreRecordedRace('Historic Grand Prix • 21:00 (Janelia vs Fly-Zero)')];
     localStorage.setItem(REPLAYS_STORAGE_KEY, JSON.stringify(initial));
     return initial;
   } catch (err) {
@@ -78,7 +78,7 @@ export function generatePreRecordedRace(title: string): SavedRaceReplay {
   return {
     id: `replay-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     title,
-    date: 'Ontem, 21:00',
+    date: 'Yesterday, 21:00',
     winnerName: winner.name,
     winnerTeam: winner.team,
     winnerColor: winner.eyeColor,
