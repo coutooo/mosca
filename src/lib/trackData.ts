@@ -81,6 +81,23 @@ export function getCircuitData(width = 900, height = 550): TrackData {
   const pNext = waypoints[startIdx + 1];
   const startAngle = Math.atan2(pNext.y - pStart.y, pNext.x - pStart.x);
 
+  // Staggered grid slots for 4 flies
+  const perpX = -Math.sin(startAngle);
+  const perpY = Math.cos(startAngle);
+  const dirX = Math.cos(startAngle);
+  const dirY = Math.sin(startAngle);
+
+  const gridSlots = [
+    // Pole (Fly #1)
+    { x: pStart.x + perpX * 7, y: pStart.y + perpY * 7, angle: startAngle },
+    // Slot 2 (Fly #2)
+    { x: pStart.x - perpX * 7 - dirX * 18, y: pStart.y - perpY * 7 - dirY * 18, angle: startAngle },
+    // Slot 3 (Fly #3)
+    { x: pStart.x + perpX * 7 - dirX * 36, y: pStart.y + perpY * 7 - dirY * 36, angle: startAngle },
+    // Slot 4 (Fly #4)
+    { x: pStart.x - perpX * 7 - dirX * 54, y: pStart.y - perpY * 7 - dirY * 54, angle: startAngle },
+  ];
+
   return {
     id: 'monaco-drosophila',
     name: 'Circuit de Drosophila Grand Prix',
@@ -92,6 +109,7 @@ export function getCircuitData(width = 900, height = 550): TrackData {
     checkpoints,
     startPoint: pStart,
     startAngle,
+    gridSlots,
   };
 }
 

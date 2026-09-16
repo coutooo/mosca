@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { RacingTelemetry, TrackRecord, RaceStatus } from '@/types/racing';
+import { RacingTelemetry, TrackRecord, RaceStatus, FlyCompetitor } from '@/types/racing';
 import { RaceTrackCanvas } from '@/components/RaceTrackCanvas';
 import { TrackRecordHUD } from '@/components/TrackRecordHUD';
 import { Brain3D } from '@/components/Brain3D';
@@ -20,6 +20,7 @@ export default function Home() {
   const [telemetry, setTelemetry] = useState<RacingTelemetry | null>(null);
   const [newRecordAlert, setNewRecordAlert] = useState<TrackRecord | null>(null);
   const [copied, setCopied] = useState(false);
+  const [focusedFlyId, setFocusedFlyId] = useState<string>('fly-1');
 
   // Scheduled race lifecycle states
   const [raceStatus, setRaceStatus] = useState<RaceStatus>('WAITING');
@@ -67,7 +68,7 @@ export default function Home() {
     }, 550);
   }, []);
 
-  const handleRaceFinished = useCallback((finalRecord: TrackRecord | null) => {
+  const handleRaceFinished = useCallback((winner: FlyCompetitor, finalRecord: TrackRecord | null) => {
     setRaceStatus('FINISHED');
     setTimeout(() => {
       setRaceStatus('WAITING');
@@ -104,6 +105,8 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const activeFly = telemetry?.competitors?.find((c) => c.id === focusedFlyId);
+
   return (
     <div className="w-full flex flex-col items-center py-6 px-4 sm:px-6 max-w-6xl mx-auto gap-6">
       {/* Sleek Racing Header */}
@@ -117,12 +120,12 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
                 <span>DROSOPHILA GRAND PRIX</span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                  SCHEDULED RACES
+                  4-FLY SCHEDULED RACES
                 </span>
               </h1>
             </div>
             <p className="text-xs text-slate-400 font-mono">
-              The Self-Driving Fruit Fly • 165,122 Neurons • Races on Scheduled Heats
+              4 Autonomous Flies Racing • 165,122 Biological Neurons • Scheduled Grand Prix Heats
             </p>
           </div>
         </div>
@@ -162,14 +165,15 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
             onTelemetryUpdate={handleTelemetryUpdate}
             onNewRecord={handleNewRecord}
             onRaceFinished={handleRaceFinished}
+            focusedFlyId={focusedFlyId}
             totalRaceLaps={2}
           />
 
           <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 px-2">
-            <span>Circuit Length: 420m • 12 Sector Checkpoints</span>
+            <span>Circuit Length: 420m • 4 Staggered Grid Slots • 12 Sectors</span>
             <span className="text-cyan-400">
               {isReplaying
-                ? '📹 Instant Replay Playback'
+                ? '📹 4-Fly Instant Replay Playback'
                 : raceStatus === 'RACING'
                 ? '● Official Heat In Progress'
                 : 'Grid Standby • Next Heat Scheduled'}
@@ -181,16 +185,44 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
         <div className="w-full flex flex-col gap-4">
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-xl flex flex-col gap-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-              <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                <span>3D CONNECTOME IN ACTION</span>
-              </span>
-              <span className="text-[10px] font-mono text-cyan-400">
+              <div className="flex flex-col">
+                <span className="text-xs font-mono font-bold text-slate-200 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>3D CONNECTOME</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  {activeFly?.name || 'Janelia Red'} (P{activeFly?.rank || 1})
+                </span>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-400 font-bold">
                 {raceStatus === 'RACING' || isReplaying ? `${telemetry?.speed || 0} cm/s` : 'IDLE MEMBRANE'}
               </span>
             </div>
 
-            <div className="w-full h-[220px] rounded-xl bg-slate-950/80 border border-slate-800/80 overflow-hidden">
+            {/* Competitor Selector Quick Tabs */}
+            <div className="flex items-center gap-1 p-1 bg-slate-950/80 rounded-xl border border-slate-800">
+              {[
+                { id: 'fly-1', label: 'Janelia', color: '#ff2a4b' },
+                { id: 'fly-2', label: 'Fly-Zero', color: '#22d3ee' },
+                { id: 'fly-3', label: 'Apex', color: '#34d399' },
+                { id: 'fly-4', label: 'Quantum', color: '#c084fc' },
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFocusedFlyId(f.id)}
+                  className={`flex-1 py-1 px-1 rounded-lg text-[10px] font-mono font-bold flex items-center justify-center gap-1 transition-all ${
+                    focusedFlyId === f.id
+                      ? 'bg-slate-800 text-white shadow-sm border border-slate-700'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: f.color }} />
+                  <span className="truncate">{f.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="w-full h-[210px] rounded-xl bg-slate-950/80 border border-slate-800/80 overflow-hidden">
               <Brain3D
                 steeringAngle={raceStatus === 'RACING' || isReplaying ? (telemetry?.steeringAngle || 0) : 0}
                 speed={raceStatus === 'RACING' || isReplaying ? (telemetry?.speed || 0) : 0}
@@ -198,7 +230,7 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
                 painShock={telemetry?.painShock || false}
                 leftFlow={raceStatus === 'RACING' || isReplaying ? (telemetry?.leftEyeOpticalFlow || 0.5) : 0.2}
                 rightFlow={raceStatus === 'RACING' || isReplaying ? (telemetry?.rightEyeOpticalFlow || 0.5) : 0.2}
-                height={220}
+                height={210}
               />
             </div>
 
@@ -255,6 +287,8 @@ Runs only during scheduled Grand Prix heats. Powered by Janelia biological conne
           onToggleReplay={() => setIsReplaying(!isReplaying)}
           telemetry={telemetry}
           newRecordAlert={newRecordAlert}
+          focusedFlyId={focusedFlyId}
+          onSelectFly={setFocusedFlyId}
         />
       </div>
 

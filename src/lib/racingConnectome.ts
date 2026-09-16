@@ -5,11 +5,11 @@ import {
   Point,
   TrackRecord,
   ConnectomeWeights,
+  FlyCompetitor,
 } from '@/types/racing';
 import { formatLapTime } from './trackData';
 
-const WEIGHTS_KEY = 'fly_racing_connectome_weights_v2';
-const RECORDS_KEY = 'fly_racing_records_v2';
+const RECORDS_KEY = 'fly_racing_records_v3';
 
 const RAY_ANGLES = [
   -Math.PI * 0.42, // Far Left (-75°)
@@ -20,34 +20,6 @@ const RAY_ANGLES = [
   Math.PI * 0.25,  // Mid Right (+45°)
   Math.PI * 0.42,  // Far Right (+75°)
 ];
-
-export const DEFAULT_WEIGHTS: ConnectomeWeights = {
-  sensorWeightsLeft: [-1.4, -1.8, -2.4], // steer right when left sensors detect wall
-  sensorWeightsRight: [2.4, 1.8, 1.4],   // steer left when right sensors detect wall
-  speedWeight: 1.1,
-  biasSteer: 0.02,
-  learningRate: 0.08,
-};
-
-export function getStoredWeights(): ConnectomeWeights {
-  if (typeof window === 'undefined') return DEFAULT_WEIGHTS;
-  try {
-    const raw = localStorage.getItem(WEIGHTS_KEY);
-    if (!raw) return DEFAULT_WEIGHTS;
-    return JSON.parse(raw);
-  } catch {
-    return DEFAULT_WEIGHTS;
-  }
-}
-
-export function saveStoredWeights(w: ConnectomeWeights) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(WEIGHTS_KEY, JSON.stringify(w));
-  } catch (err) {
-    console.error('Failed to save weights', err);
-  }
-}
 
 export function getStoredRecords(): { lapRecord: TrackRecord | null; recentRecords: TrackRecord[] } {
   if (typeof window === 'undefined') {
@@ -71,51 +43,141 @@ export function saveStoredRecords(data: { lapRecord: TrackRecord | null; recentR
   }
 }
 
-/**
- * Initialize Fly on the Starting Grid
- */
-export function createInitialFlyState(track: TrackData): FlyCarState {
-  return {
-    x: track.startPoint.x,
-    y: track.startPoint.y,
-    angle: track.startAngle,
-    speed: 0,
-    steer: 0,
-    throttle: 0,
-    brake: 0,
-    currentCheckpoint: 0,
-    lapsCompleted: 0,
-    lapStartTime: performance.now(),
-    currentLapTime: 0,
-    isCrashed: false,
-    crashCount: 0,
-    distanceTraveled: 0,
-    raySensors: RAY_ANGLES.map((a) => ({
-      angle: a,
-      distance: 1,
-      hitPoint: { x: track.startPoint.x, y: track.startPoint.y },
-    })),
-  };
+export function createCompetitors(track: TrackData): FlyCompetitor[] {
+  const archetypes: Omit<FlyCompetitor, 'state'>[] = [
+    {
+      id: 'fly-1',
+      name: 'Janelia Red',
+      team: 'HHMI Bio-Racing',
+      bodyColor: '#b86819',
+      eyeColor: '#ff2a4b', // Ruby Red
+      accentColor: '#38bdf8',
+      rank: 1,
+      gapToLeader: 'LEADER',
+      bestLapTime: null,
+      lastLapTime: null,
+      weights: {
+        sensorWeightsLeft: [-1.4, -1.8, -2.4],
+        sensorWeightsRight: [2.4, 1.8, 1.4],
+        speedWeight: 1.12,
+        biasSteer: 0.01,
+        learningRate: 0.08,
+      },
+    },
+    {
+      id: 'fly-2',
+      name: 'Fly-Zero',
+      team: 'Cambridge Connectomics',
+      bodyColor: '#0f766e',
+      eyeColor: '#22d3ee', // Neon Cyan
+      accentColor: '#a855f7',
+      rank: 2,
+      gapToLeader: '+0.42s',
+      bestLapTime: null,
+      lastLapTime: null,
+      weights: {
+        sensorWeightsLeft: [-1.3, -1.9, -2.6],
+        sensorWeightsRight: [2.6, 1.9, 1.3],
+        speedWeight: 1.18, // faster straight speed
+        biasSteer: -0.02,
+        learningRate: 0.09,
+      },
+    },
+    {
+      id: 'fly-3',
+      name: 'Apex Drosophila',
+      team: 'LMB Aerodynamics',
+      bodyColor: '#065f46',
+      eyeColor: '#34d399', // Emerald
+      accentColor: '#fbbf24',
+      rank: 3,
+      gapToLeader: '+0.88s',
+      bestLapTime: null,
+      lastLapTime: null,
+      weights: {
+        sensorWeightsLeft: [-1.5, -2.0, -2.3],
+        sensorWeightsRight: [2.3, 2.0, 1.5],
+        speedWeight: 1.10, // smooth cornering
+        biasSteer: 0.02,
+        learningRate: 0.07,
+      },
+    },
+    {
+      id: 'fly-4',
+      name: 'Quantum Fly',
+      team: 'Fruitfly Research',
+      bodyColor: '#581c87',
+      eyeColor: '#ec4899', // Hot Pink
+      accentColor: '#f43f5e',
+      rank: 4,
+      gapToLeader: '+1.35s',
+      bestLapTime: null,
+      lastLapTime: null,
+      weights: {
+        sensorWeightsLeft: [-1.2, -1.7, -2.8],
+        sensorWeightsRight: [2.8, 1.7, 1.2],
+        speedWeight: 1.22, // aggressive acceleration
+        biasSteer: -0.01,
+        learningRate: 0.10,
+      },
+    },
+  ];
+
+  return archetypes.map((arch, idx) => {
+    const slot = track.gridSlots[idx] || {
+      x: track.startPoint.x,
+      y: track.startPoint.y,
+      angle: track.startAngle,
+    };
+
+    const state: FlyCarState = {
+      x: slot.x,
+      y: slot.y,
+      angle: slot.angle,
+      speed: 0,
+      steer: 0,
+      throttle: 0,
+      brake: 0,
+      currentCheckpoint: 0,
+      lapsCompleted: 0,
+      lapStartTime: performance.now(),
+      currentLapTime: 0,
+      isCrashed: false,
+      crashCount: 0,
+      distanceTraveled: 0,
+      totalDistance: 0,
+      raySensors: RAY_ANGLES.map((a) => ({
+        angle: a,
+        distance: 1,
+        hitPoint: { x: slot.x, y: slot.y },
+      })),
+    };
+
+    return {
+      ...arch,
+      state,
+    };
+  });
 }
 
 /**
- * Step Physics and Biological Neural Steering Controller
+ * Step Physics and Biological Neural Steering for an individual fly
  */
-export function stepAutonomousFly(
-  fly: FlyCarState,
+export function stepCompetitor(
+  comp: FlyCompetitor,
   track: TrackData,
-  weights: ConnectomeWeights,
+  otherFlies: FlyCompetitor[],
   dt = 0.016
 ): {
-  fly: FlyCarState;
-  weights: ConnectomeWeights;
   newRecord: TrackRecord | null;
   lapCompleted: boolean;
   crashed: boolean;
 } {
+  const fly = comp.state;
+  const weights = comp.weights;
   const maxRayDist = 140;
 
-  // 1. Raycast Compound Eye Vision against boundaries
+  // 1. Raycast Compound Eye Vision
   const rays: RaySensor[] = [];
   let leftFlowSum = 0;
   let rightFlowSum = 0;
@@ -160,7 +222,21 @@ export function stepAutonomousFly(
       }
     }
 
-    const normDist = minDist / maxRayDist; // 0 (imminent wall) to 1 (clear open asphalt)
+    // Also avoid nearby other flies (inter-fly collision avoidance!)
+    otherFlies.forEach((other) => {
+      if (other.id === comp.id) return;
+      const distToOther = Math.hypot(other.state.x - fly.x, other.state.y - fly.y);
+      if (distToOther < 35) {
+        const angleToOther = Math.atan2(other.state.y - fly.y, other.state.x - fly.x);
+        const diff = Math.abs(normalizeAngle(angleToOther - absAngle));
+        if (diff < 0.35 && distToOther < minDist) {
+          minDist = distToOther;
+          hitP = { x: other.state.x, y: other.state.y };
+        }
+      }
+    });
+
+    const normDist = minDist / maxRayDist;
     rays.push({
       angle: relAngle,
       distance: normDist,
@@ -168,16 +244,15 @@ export function stepAutonomousFly(
     });
 
     if (i < 3) {
-      leftFlowSum += (1 - normDist); // higher if wall close on left
+      leftFlowSum += (1 - normDist);
     } else if (i > 3) {
-      rightFlowSum += (1 - normDist); // higher if wall close on right
+      rightFlowSum += (1 - normDist);
     }
   }
 
   fly.raySensors = rays;
 
-  // 2. Biological Connectome Decision (Optic Lobes -> Central Complex -> Motor)
-  // Inverse proximity triggers avoidance saccade
+  // 2. Neural Steering Decision
   const leftSensors = [1 - rays[0].distance, 1 - rays[1].distance, 1 - rays[2].distance];
   const rightSensors = [1 - rays[4].distance, 1 - rays[5].distance, 1 - rays[6].distance];
   const centerDist = rays[3].distance;
@@ -189,10 +264,8 @@ export function stepAutonomousFly(
   }
   steerSignal += weights.biasSteer;
 
-  // Smoothing motor inertia
   fly.steer = Math.max(-1, Math.min(1, steerSignal));
 
-  // Forward throttle: faster when center is clear, brake when approaching hairpin
   const targetSpeed = Math.max(1.8, centerDist * 5.8 * weights.speedWeight);
   if (fly.speed < targetSpeed) {
     fly.speed = Math.min(targetSpeed, fly.speed + 0.15);
@@ -204,21 +277,19 @@ export function stepAutonomousFly(
     fly.brake = 0.8;
   }
 
-  // 3. Update Position & Orientation
   fly.angle += fly.steer * (0.065 * (fly.speed / 3.2));
   fly.x += Math.cos(fly.angle) * fly.speed;
   fly.y += Math.sin(fly.angle) * fly.speed;
   fly.distanceTraveled += fly.speed;
+  fly.totalDistance += fly.speed;
 
-  // Update Lap Time
   const now = performance.now();
   fly.currentLapTime = (now - fly.lapStartTime) / 1000;
 
-  // 4. Collision Detection (Did the fly body hit any wall boundary?)
-  const flyRadius = 9;
+  // 3. Collision Detection with barriers
+  const flyRadius = 8.5;
   let isCollided = false;
 
-  // Check collision with outer boundaries
   for (let j = 0; j < track.outerBoundary.length; j++) {
     const p1 = track.outerBoundary[j];
     const p2 = track.outerBoundary[(j + 1) % track.outerBoundary.length];
@@ -228,7 +299,6 @@ export function stepAutonomousFly(
     }
   }
 
-  // Check collision with inner boundaries
   if (!isCollided) {
     for (let j = 0; j < track.innerBoundary.length; j++) {
       const p1 = track.innerBoundary[j];
@@ -240,25 +310,18 @@ export function stepAutonomousFly(
     }
   }
 
-  // Handle Crash & Autonomous Weight Adaptation
   if (isCollided) {
     fly.isCrashed = true;
     fly.crashCount++;
 
-    // Plasticity penalty: adjust weights to turn harder away from the side hit
-    const updatedWeights = { ...weights };
     if (leftFlowSum > rightFlowSum) {
-      // Hit left wall -> increase rightward steering weights
-      updatedWeights.sensorWeightsLeft[1] -= weights.learningRate * 0.4;
-      updatedWeights.sensorWeightsLeft[2] -= weights.learningRate * 0.6;
+      weights.sensorWeightsLeft[1] -= weights.learningRate * 0.4;
+      weights.sensorWeightsLeft[2] -= weights.learningRate * 0.6;
     } else {
-      // Hit right wall -> increase leftward steering weights
-      updatedWeights.sensorWeightsRight[1] += weights.learningRate * 0.4;
-      updatedWeights.sensorWeightsRight[2] += weights.learningRate * 0.6;
+      weights.sensorWeightsRight[1] += weights.learningRate * 0.4;
+      weights.sensorWeightsRight[2] += weights.learningRate * 0.6;
     }
-    saveStoredWeights(updatedWeights);
 
-    // Respawn smoothly along the track at the last valid waypoint
     const closestIdx = findClosestWaypointIndex(fly, track.waypoints);
     const safeWp = track.waypoints[closestIdx];
     const nextWp = track.waypoints[(closestIdx + 1) % track.waypoints.length];
@@ -269,16 +332,10 @@ export function stepAutonomousFly(
     fly.speed = 1.2;
     fly.isCrashed = false;
 
-    return {
-      fly,
-      weights: updatedWeights,
-      newRecord: null,
-      lapCompleted: false,
-      crashed: true,
-    };
+    return { newRecord: null, lapCompleted: false, crashed: true };
   }
 
-  // 5. Checkpoint & Lap Completion Detection
+  // 4. Checkpoints & Lap Finish
   let lapCompleted = false;
   let newRecord: TrackRecord | null = null;
 
@@ -289,7 +346,6 @@ export function stepAutonomousFly(
   if (distToCp < 35) {
     fly.currentCheckpoint = nextCpIdx;
 
-    // Completed full lap!
     if (nextCpIdx === 0 && fly.distanceTraveled > 300) {
       lapCompleted = true;
       fly.lapsCompleted++;
@@ -299,12 +355,11 @@ export function stepAutonomousFly(
       fly.currentLapTime = 0;
       fly.distanceTraveled = 0;
 
-      // Positive reinforcement reward: reinforce current weights
-      const updatedWeights = { ...weights };
-      updatedWeights.speedWeight = Math.min(1.8, updatedWeights.speedWeight + 0.02);
-      saveStoredWeights(updatedWeights);
+      comp.lastLapTime = finalLapTime;
+      if (!comp.bestLapTime || finalLapTime < comp.bestLapTime) {
+        comp.bestLapTime = finalLapTime;
+      }
 
-      // Check for Lap Record
       const records = getStoredRecords();
       const isNewRecord = !records.lapRecord || finalLapTime < records.lapRecord.lapTime;
 
@@ -314,6 +369,7 @@ export function stepAutonomousFly(
         date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
         topSpeed: Math.round(fly.speed * 18 * 10) / 10,
         generation: fly.lapsCompleted + fly.crashCount,
+        holderName: comp.name,
         sectorTimes: [finalLapTime * 0.32, finalLapTime * 0.36, finalLapTime * 0.32],
       };
 
@@ -325,23 +381,38 @@ export function stepAutonomousFly(
       records.recentRecords = [recordEntry, ...records.recentRecords.slice(0, 7)];
       saveStoredRecords(records);
 
-      return {
-        fly,
-        weights: updatedWeights,
-        newRecord,
-        lapCompleted: true,
-        crashed: false,
-      };
+      return { newRecord, lapCompleted: true, crashed: false };
     }
   }
 
-  return {
-    fly,
-    weights,
-    newRecord,
-    lapCompleted: false,
-    crashed: false,
-  };
+  return { newRecord: null, lapCompleted: false, crashed: false };
+}
+
+/**
+ * Sort 4 competitors by race position (distance traveled)
+ */
+export function updateCompetitorRanks(competitors: FlyCompetitor[]): FlyCompetitor[] {
+  const sorted = [...competitors].sort((a, b) => {
+    if (a.state.lapsCompleted !== b.state.lapsCompleted) {
+      return b.state.lapsCompleted - a.state.lapsCompleted;
+    }
+    return b.state.totalDistance - a.state.totalDistance;
+  });
+
+  const leaderDist = sorted[0]?.state.totalDistance || 1;
+
+  sorted.forEach((comp, idx) => {
+    comp.rank = idx + 1;
+    if (idx === 0) {
+      comp.gapToLeader = 'LEADER';
+    } else {
+      const gapPx = leaderDist - comp.state.totalDistance;
+      const gapSec = (gapPx / 45).toFixed(2);
+      comp.gapToLeader = `+${gapSec}s`;
+    }
+  });
+
+  return sorted;
 }
 
 // Helpers
@@ -380,4 +451,10 @@ function findClosestWaypointIndex(p: Point, waypoints: Point[]): number {
     }
   }
   return idx;
+}
+
+function normalizeAngle(a: number): number {
+  while (a > Math.PI) a -= Math.PI * 2;
+  while (a < -Math.PI) a += Math.PI * 2;
+  return a;
 }

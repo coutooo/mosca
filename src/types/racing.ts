@@ -1,3 +1,8 @@
+export interface Point {
+  x: number;
+  y: number;
+}
+
 export interface ReplayFrame {
   x: number;
   y: number;
@@ -8,15 +13,14 @@ export interface ReplayFrame {
   rightFlow: number;
 }
 
-export interface Point {
-  x: number;
-  y: number;
-}
-
-export interface TrackSegment {
-  inner: Point;
-  outer: Point;
-  center: Point;
+export interface MultiFlyReplayFrame {
+  flies: {
+    id: string;
+    x: number;
+    y: number;
+    angle: number;
+    speed: number;
+  }[];
 }
 
 export interface TrackData {
@@ -30,6 +34,13 @@ export interface TrackData {
   checkpoints: Point[];
   startPoint: Point;
   startAngle: number;
+  gridSlots: { x: number; y: number; angle: number }[];
+}
+
+export interface RaySensor {
+  angle: number; // relative to fly heading
+  distance: number; // 0 to 1 (normalized, 1 = clear, 0 = wall)
+  hitPoint: Point;
 }
 
 export interface FlyCarState {
@@ -47,21 +58,32 @@ export interface FlyCarState {
   isCrashed: boolean;
   crashCount: number;
   distanceTraveled: number;
+  totalDistance: number;
   raySensors: RaySensor[];
 }
 
-export interface RaySensor {
-  angle: number; // relative to fly heading
-  distance: number; // 0 to 1 (normalized, 1 = clear, 0 = wall)
-  hitPoint: Point;
+export interface FlyCompetitor {
+  id: string;
+  name: string;
+  team: string;
+  bodyColor: string;
+  eyeColor: string;
+  accentColor: string;
+  state: FlyCarState;
+  weights: ConnectomeWeights;
+  rank: number; // 1, 2, 3, 4
+  gapToLeader: string;
+  bestLapTime: number | null;
+  lastLapTime: number | null;
 }
 
 export interface TrackRecord {
-  lapTime: number; // in seconds, e.g. 14.821
+  lapTime: number; // in seconds
   formattedTime: string;
   date: string;
   topSpeed: number;
   generation: number;
+  holderName: string;
   sectorTimes: number[];
 }
 
@@ -76,11 +98,23 @@ export interface RacingTelemetry {
   totalCrashes: number;
   speed: number;
   gForce: number;
-  leftEyeOpticalFlow: number; // 0 to 1
-  rightEyeOpticalFlow: number; // 0 to 1
+  leftEyeOpticalFlow: number;
+  rightEyeOpticalFlow: number;
   steeringAngle: number;
   dopamineSurge: boolean;
   painShock: boolean;
+  competitors: {
+    id: string;
+    name: string;
+    team: string;
+    rank: number;
+    color: string;
+    speed: number;
+    lapsCompleted: number;
+    gap: string;
+    bestLap: string;
+  }[];
+  focusedFlyId: string;
 }
 
 export type RaceStatus = 'WAITING' | 'STARTING_LIGHTS' | 'RACING' | 'FINISHED';
@@ -96,8 +130,8 @@ export interface RaceEventSchedule {
 }
 
 export interface ConnectomeWeights {
-  sensorWeightsLeft: number[]; // weights from left eye rays to steer
-  sensorWeightsRight: number[]; // weights from right eye rays to steer
+  sensorWeightsLeft: number[];
+  sensorWeightsRight: number[];
   speedWeight: number;
   biasSteer: number;
   learningRate: number;

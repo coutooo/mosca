@@ -15,6 +15,8 @@ interface TrackRecordHUDProps {
   onToggleReplay: () => void;
   telemetry: RacingTelemetry | null;
   newRecordAlert: TrackRecord | null;
+  focusedFlyId?: string;
+  onSelectFly?: (id: string) => void;
 }
 
 export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
@@ -26,6 +28,8 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   onToggleReplay,
   telemetry,
   newRecordAlert,
+  focusedFlyId = 'fly-1',
+  onSelectFly,
 }) => {
   const record = telemetry?.lapRecord;
   const currentLap = telemetry?.currentLapTime || 0;
@@ -230,6 +234,84 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
           </div>
         </div>
       </div>
+
+      {/* 4-Fly Grand Prix Live Leaderboard & Connectome Link */}
+      {telemetry?.competitors && telemetry.competitors.length > 0 && (
+        <div className="w-full p-4 rounded-2xl bg-slate-900/70 border border-slate-800 flex flex-col gap-3 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs font-mono">
+            <span className="font-bold text-slate-200 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>4-FLY LIVE GRID LEADERBOARD</span>
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Click a fly to stream its 165,122-neuron connectome & vision rays
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {telemetry.competitors.map((comp) => {
+              const isFocused = comp.id === focusedFlyId;
+              const rankColor =
+                comp.rank === 1
+                  ? 'text-amber-400 border-amber-500/40 bg-amber-500/10'
+                  : comp.rank === 2
+                  ? 'text-slate-200 border-slate-400/40 bg-slate-400/10'
+                  : comp.rank === 3
+                  ? 'text-amber-600 border-amber-600/40 bg-amber-600/10'
+                  : 'text-slate-500 border-slate-700 bg-slate-800/40';
+
+              return (
+                <div
+                  key={comp.id}
+                  onClick={() => onSelectFly?.(comp.id)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+                    isFocused
+                      ? 'bg-slate-800/90 border-cyan-500/80 shadow-[0_0_15px_rgba(6,182,212,0.25)] ring-1 ring-cyan-500/50'
+                      : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-black border ${rankColor}`}>
+                        P{comp.rank}
+                      </span>
+                      <div
+                        className="w-3.5 h-3.5 rounded-full shadow-sm"
+                        style={{ backgroundColor: comp.color, boxShadow: `0 0 8px ${comp.color}` }}
+                      />
+                    </div>
+                    <span className="font-mono text-[11px] text-slate-400 font-semibold">
+                      {comp.gap}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="font-mono font-bold text-sm text-white truncate">
+                      {comp.name}
+                    </div>
+                    <div className="font-mono text-[10px] text-slate-400 truncate">
+                      {comp.team}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800/70 flex items-center justify-between font-mono text-[10px]">
+                    <span className="text-slate-400">
+                      Best: <b className="text-slate-200">{comp.bestLap}</b>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                      isFocused
+                        ? 'bg-cyan-500 text-slate-950 font-black'
+                        : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {isFocused ? '🧠 BRAIN ACTIVE' : 'INSPECT'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* New Lap Record Notification */}
       {newRecordAlert && (

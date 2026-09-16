@@ -1,22 +1,33 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   TrackData,
-  FlyCarState,
   RacingTelemetry,
   TrackRecord,
   RaceStatus,
-  ReplayFrame,
+  FlyCompetitor,
 } from '@/types/racing';
-import { getCircuitData } from '@/lib/trackData';
+import { getCircuitData, formatLapTime } from '@/lib/trackData';
 import {
-  createInitialFlyState,
-  stepAutonomousFly,
-  getStoredWeights,
+  createCompetitors,
+  stepCompetitor,
+  updateCompetitorRanks,
   getStoredRecords,
 } from '@/lib/racingConnectome';
 import confetti from 'canvas-confetti';
+
+interface MultiFlyFrame {
+  flies: {
+    id: string;
+    x: number;
+    y: number;
+    angle: number;
+    speed: number;
+    steer: number;
+    rank: number;
+  }[];
+}
 
 interface RaceTrackCanvasProps {
   raceStatus: RaceStatus;
@@ -26,7 +37,8 @@ interface RaceTrackCanvasProps {
   onHasReplayChange: (hasReplay: boolean) => void;
   onTelemetryUpdate: (telemetry: RacingTelemetry) => void;
   onNewRecord: (record: TrackRecord) => void;
-  onRaceFinished: (finalRecord: TrackRecord | null) => void;
+  onRaceFinished: (winner: FlyCompetitor, finalRecord: TrackRecord | null) => void;
+  focusedFlyId?: string;
   totalRaceLaps?: number;
 }
 
@@ -39,6 +51,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
   onTelemetryUpdate,
   onNewRecord,
   onRaceFinished,
+  focusedFlyId = 'fly-1',
   totalRaceLaps = 2,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -49,38 +62,38 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
   const isReplayingRef = useRef(isReplaying);
   isReplayingRef.current = isReplaying;
 
-  const recordedRunFrames = useRef<ReplayFrame[]>([]);
-  const lastRunReplayFrames = useRef<ReplayFrame[]>([]);
+  const focusedFlyIdRef = useRef(focusedFlyId);
+  focusedFlyIdRef.current = focusedFlyId;
+
+  const recordedRunFrames = useRef<MultiFlyFrame[]>([]);
+  const lastRunReplayFrames = useRef<MultiFlyFrame[]>([]);
   const replayIndexRef = useRef<number>(0);
 
   const simRef = useRef<{
     track: TrackData;
-    fly: FlyCarState;
-    weights: ReturnType<typeof getStoredWeights>;
+    competitors: FlyCompetitor[];
     lastFrameTime: number;
     dopamineSurge: boolean;
     painShock: boolean;
-    raceLapCount: number;
+    raceLapsDone: number;
   }>({
     track: getCircuitData(),
-    fly: createInitialFlyState(getCircuitData()),
-    weights: getStoredWeights(),
+    competitors: createCompetitors(getCircuitData()),
     lastFrameTime: performance.now(),
     dopamineSurge: false,
     painShock: false,
-    raceLapCount: 0,
+    raceLapsDone: 0,
   });
 
-  // Reset fly to starting grid whenever waiting or starting
+  // Reset competitors to starting grid slots whenever waiting or starting
   useEffect(() => {
     if (!isReplaying && (raceStatus === 'WAITING' || raceStatus === 'STARTING_LIGHTS')) {
       const track = simRef.current.track;
-      simRef.current.fly = createInitialFlyState(track);
-      simRef.current.raceLapCount = 0;
+      simRef.current.competitors = createCompetitors(track);
+      simRef.current.raceLapsDone = 0;
     }
   }, [raceStatus, isReplaying]);
 
-  // Handle replay reset
   useEffect(() => {
     if (isReplaying) {
       replayIndexRef.current = 0;
@@ -100,23 +113,29 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
 
       const currentStatus = statusRef.current;
       const replaying = isReplayingRef.current;
-      const { track, fly, weights } = simRef.current;
+      const { track, competitors } = simRef.current;
 
       let newRecordAchieved: TrackRecord | null = null;
-      let crashedThisTick = false;
-      let lapDoneThisTick = false;
+      let anyCrashed = false;
+      let leaderLapCompleted = false;
 
       // -------------------------------------------------------------
-      // 1. REPLAY MODE vs LIVE RACING vs IDLE
+      // 1. REPLAY MODE vs LIVE 4-FLY RACING
       // -------------------------------------------------------------
       if (replaying && lastRunReplayFrames.current.length > 0) {
         const frame = lastRunReplayFrames.current[replayIndexRef.current];
         if (frame) {
-          fly.x = frame.x;
-          fly.y = frame.y;
-          fly.angle = frame.angle;
-          fly.speed = frame.speed;
-          fly.steer = frame.steer;
+          frame.flies.forEach((saved) => {
+            const comp = competitors.find((c) => c.id === saved.id);
+            if (comp) {
+              comp.state.x = saved.x;
+              comp.state.y = saved.y;
+              comp.state.angle = saved.angle;
+              comp.state.speed = saved.speed;
+              comp.state.steer = saved.steer;
+              comp.rank = saved.rank;
+            }
+          });
 
           replayIndexRef.current++;
           if (replayIndexRef.current >= lastRunReplayFrames.current.length) {
@@ -125,48 +144,55 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
           }
         }
       } else if (currentStatus === 'RACING') {
-        const stepRes = stepAutonomousFly(fly, track, weights, 0.016);
-        simRef.current.fly = stepRes.fly;
-        simRef.current.weights = stepRes.weights;
+        // Step all 4 flies
+        competitors.forEach((comp) => {
+          const res = stepCompetitor(comp, track, competitors, 0.016);
+          if (res.newRecord) {
+            newRecordAchieved = res.newRecord;
+          }
+          if (res.crashed) {
+            anyCrashed = true;
+          }
+          if (res.lapCompleted && comp.rank === 1) {
+            leaderLapCompleted = true;
+            simRef.current.raceLapsDone++;
 
-        // Record frame for replay
-        recordedRunFrames.current.push({
-          x: fly.x,
-          y: fly.y,
-          angle: fly.angle,
-          speed: fly.speed,
-          steer: fly.steer,
-          leftFlow: (fly.raySensors[0]?.distance ? 1 - fly.raySensors[0].distance : 0.5),
-          rightFlow: (fly.raySensors[6]?.distance ? 1 - fly.raySensors[6].distance : 0.5),
+            if (simRef.current.raceLapsDone >= totalRaceLaps) {
+              if (recordedRunFrames.current.length > 20) {
+                lastRunReplayFrames.current = [...recordedRunFrames.current];
+                onHasReplayChange(true);
+              }
+              recordedRunFrames.current = [];
+              onRaceFinished(comp, newRecordAchieved || getStoredRecords().lapRecord);
+            }
+          }
         });
 
-        if (stepRes.newRecord) {
-          newRecordAchieved = stepRes.newRecord;
-        }
-        if (stepRes.crashed) {
-          crashedThisTick = true;
-        }
-        if (stepRes.lapCompleted) {
-          lapDoneThisTick = true;
-          simRef.current.raceLapCount++;
+        // Update live ranks (1st, 2nd, 3rd, 4th)
+        simRef.current.competitors = updateCompetitorRanks(competitors);
 
-          if (simRef.current.raceLapCount >= totalRaceLaps) {
-            // Save replay
-            if (recordedRunFrames.current.length > 20) {
-              lastRunReplayFrames.current = [...recordedRunFrames.current];
-              onHasReplayChange(true);
-            }
-            recordedRunFrames.current = [];
-            onRaceFinished(newRecordAchieved || getStoredRecords().lapRecord);
-          }
-        }
+        // Record multi-fly frame for replay
+        recordedRunFrames.current.push({
+          flies: competitors.map((c) => ({
+            id: c.id,
+            x: c.state.x,
+            y: c.state.y,
+            angle: c.state.angle,
+            speed: c.state.speed,
+            steer: c.state.steer,
+            rank: c.rank,
+          })),
+        });
       } else {
-        // Idling on pole position
-        fly.speed = 0;
-        fly.steer = 0;
-        fly.x = track.startPoint.x;
-        fly.y = track.startPoint.y;
-        fly.angle = track.startAngle;
+        // Reset to grid slots
+        competitors.forEach((comp, idx) => {
+          const slot = track.gridSlots[idx] || track.gridSlots[0];
+          comp.state.x = slot.x;
+          comp.state.y = slot.y;
+          comp.state.angle = slot.angle;
+          comp.state.speed = 0;
+          comp.state.steer = 0;
+        });
       }
 
       if (newRecordAchieved) {
@@ -181,21 +207,26 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         setTimeout(() => {
           simRef.current.dopamineSurge = false;
         }, 3000);
-      } else if (lapDoneThisTick) {
+      } else if (leaderLapCompleted) {
         simRef.current.dopamineSurge = true;
         setTimeout(() => {
           simRef.current.dopamineSurge = false;
         }, 1500);
       }
 
-      if (crashedThisTick) {
+      if (anyCrashed) {
         simRef.current.painShock = true;
         setTimeout(() => {
           simRef.current.painShock = false;
-        }, 400);
+        }, 350);
       }
 
-      // Update Telemetry
+      // Telemetry based on focused fly or leader
+      const focusedId = focusedFlyIdRef.current;
+      const leader = competitors.find((c) => c.rank === 1) || competitors[0];
+      const focusedComp = competitors.find((c) => c.id === focusedId) || leader;
+      const fly = focusedComp.state;
+
       const records = getStoredRecords();
       const leftSensors = fly.raySensors.slice(0, 3);
       const rightSensors = fly.raySensors.slice(4, 7);
@@ -204,8 +235,8 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
 
       onTelemetryUpdate({
         currentLapTime: currentStatus === 'RACING' ? fly.currentLapTime : 0,
-        lastLapTime: records.recentRecords[0]?.lapTime || null,
-        bestLapTime: records.lapRecord?.lapTime || null,
+        lastLapTime: focusedComp.lastLapTime || records.recentRecords[0]?.lapTime || null,
+        bestLapTime: focusedComp.bestLapTime || records.lapRecord?.lapTime || null,
         lapRecord: records.lapRecord,
         recentRecords: records.recentRecords,
         generation: fly.lapsCompleted + fly.crashCount,
@@ -218,10 +249,22 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         steeringAngle: fly.steer,
         dopamineSurge: simRef.current.dopamineSurge,
         painShock: simRef.current.painShock,
+        competitors: competitors.map((c) => ({
+          id: c.id,
+          name: c.name,
+          team: c.team,
+          rank: c.rank,
+          color: c.eyeColor,
+          speed: Math.round(c.state.speed * 18 * 10) / 10,
+          lapsCompleted: c.state.lapsCompleted,
+          gap: c.gapToLeader,
+          bestLap: c.bestLapTime ? formatLapTime(c.bestLapTime) : '--',
+        })),
+        focusedFlyId: focusedComp.id,
       });
 
       // -------------------------------------------------------------
-      // 2. Render Canvas Track, Asphalt, Barriers, Grid & Lights
+      // 2. Render Track, Barriers, Starting Grid, and All 4 Flies
       // -------------------------------------------------------------
       const w = canvas.width;
       const h = canvas.height;
@@ -230,7 +273,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.fillStyle = '#060a12';
       ctx.fillRect(0, 0, w, h);
 
-      // Grid lines
+      // Grid pattern
       ctx.strokeStyle = '#0e1626';
       ctx.lineWidth = 1;
       for (let x = 0; x < w; x += 45) {
@@ -256,7 +299,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.fillStyle = '#111827';
       ctx.fill();
 
-      // Infield cut-out
+      // Infield
       ctx.beginPath();
       ctx.moveTo(track.innerBoundary[0].x, track.innerBoundary[0].y);
       for (let i = 1; i < track.innerBoundary.length; i++) {
@@ -318,129 +361,142 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Starting Grid Pole Markings
-      ctx.strokeStyle = '#fbbf24';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(sp.x - 14, sp.y - 12, 28, 24);
+      // Staggered Starting Grid Boxes
+      track.gridSlots.forEach((slot, idx) => {
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(slot.x - 10, slot.y - 8, 20, 16);
 
-      // Vision Rays
-      if (currentStatus === 'RACING' || replaying) {
-        fly.raySensors.forEach((ray, rIdx) => {
-          const isLeft = rIdx < 3;
-          const isCenter = rIdx === 3;
-          ctx.strokeStyle = isCenter
-            ? 'rgba(52, 211, 153, 0.45)'
-            : isLeft
-            ? 'rgba(56, 189, 248, 0.45)'
-            : 'rgba(192, 132, 252, 0.45)';
-          ctx.lineWidth = 1;
+        ctx.font = '8px monospace';
+        ctx.fillStyle = '#fbbf24';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${idx + 1}`, slot.x, slot.y + 3);
+      });
 
+      // Render All 4 Flies
+      competitors.forEach((comp) => {
+        const cfly = comp.state;
+
+        // Render vision rays only for focused fly
+        if ((currentStatus === 'RACING' || replaying) && comp.id === focusedId) {
+          cfly.raySensors.forEach((ray, rIdx) => {
+            const isCenter = rIdx === 3;
+            ctx.strokeStyle = isCenter
+              ? 'rgba(52, 211, 153, 0.45)'
+              : comp.accentColor === '#38bdf8'
+              ? 'rgba(56, 189, 248, 0.45)'
+              : 'rgba(192, 132, 252, 0.45)';
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.moveTo(cfly.x, cfly.y);
+            ctx.lineTo(ray.hitPoint.x, ray.hitPoint.y);
+            ctx.stroke();
+          });
+        }
+
+        ctx.save();
+        ctx.translate(cfly.x, cfly.y);
+        ctx.rotate(cfly.angle);
+
+        // Speed Wake
+        if (cfly.speed > 2.2 && (currentStatus === 'RACING' || replaying)) {
+          ctx.fillStyle = `${comp.accentColor}44`;
           ctx.beginPath();
-          ctx.moveTo(fly.x, fly.y);
-          ctx.lineTo(ray.hitPoint.x, ray.hitPoint.y);
-          ctx.stroke();
-
-          ctx.fillStyle = ray.distance < 0.35 ? '#f43f5e' : ctx.strokeStyle;
-          ctx.beginPath();
-          ctx.arc(ray.hitPoint.x, ray.hitPoint.y, 2.5, 0, Math.PI * 2);
+          ctx.ellipse(-13, 0, 6 + Math.random() * 3, 2.5, 0, 0, Math.PI * 2);
           ctx.fill();
-        });
-      }
+        }
 
-      // Draw Drosophila Fly
-      ctx.save();
-      ctx.translate(fly.x, fly.y);
-      ctx.rotate(fly.angle);
-
-      // Speed Wake
-      if (fly.speed > 2.5 && (currentStatus === 'RACING' || replaying)) {
-        ctx.fillStyle = replaying ? 'rgba(34, 211, 238, 0.4)' : 'rgba(56, 189, 248, 0.3)';
+        // Fly Body
+        ctx.fillStyle = comp.bodyColor;
         ctx.beginPath();
-        ctx.ellipse(-14, 0, 7 + Math.random() * 4, 3, 0, 0, Math.PI * 2);
+        ctx.ellipse(-4, 0, 9, 5.5, 0, 0, Math.PI * 2);
         ctx.fill();
-      }
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1;
+        ctx.stroke();
 
-      // Fly Body
-      ctx.fillStyle = '#b86819';
-      ctx.beginPath();
-      ctx.ellipse(-4, 0, 10, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#542805';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+        // Stripes
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-8, -3.5);
+        ctx.lineTo(-8, 3.5);
+        ctx.moveTo(-5, -4.5);
+        ctx.lineTo(-5, 4.5);
+        ctx.moveTo(-2, -4.5);
+        ctx.lineTo(-2, 4.5);
+        ctx.stroke();
 
-      // Stripes
-      ctx.strokeStyle = '#2b1504';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.moveTo(-9, -4);
-      ctx.lineTo(-9, 4);
-      ctx.moveTo(-6, -5);
-      ctx.lineTo(-6, 5);
-      ctx.moveTo(-3, -5);
-      ctx.lineTo(-3, 5);
-      ctx.stroke();
+        // Wings
+        const flapRate = (currentStatus === 'RACING' || replaying) ? 0.04 + cfly.speed * 0.02 : 0.008;
+        const wingFlutter = Math.sin(currentTime * flapRate + comp.rank) * ((currentStatus === 'RACING' || replaying) ? 5.5 : 2);
+        ctx.fillStyle = 'rgba(203, 230, 247, 0.7)';
+        ctx.strokeStyle = '#a1c9e8';
+        ctx.lineWidth = 0.8;
 
-      // Translucent Wings
-      const flapRate = (currentStatus === 'RACING' || replaying) ? 0.04 + fly.speed * 0.02 : 0.008;
-      const wingFlutter = Math.sin(currentTime * flapRate) * ((currentStatus === 'RACING' || replaying) ? 6 : 2.5);
-      ctx.fillStyle = 'rgba(203, 230, 247, 0.7)';
-      ctx.strokeStyle = '#a1c9e8';
-      ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.ellipse(-2, -7 - wingFlutter * 0.3, 6.5, 3.5, -0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
 
-      ctx.beginPath();
-      ctx.ellipse(-2, -8 - wingFlutter * 0.3, 7, 4, -0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-2, 7 + wingFlutter * 0.3, 6.5, 3.5, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
 
-      ctx.beginPath();
-      ctx.ellipse(-2, 8 + wingFlutter * 0.3, 7, 4, 0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+        // Head
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.arc(5.5, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Head
-      ctx.fillStyle = '#8c470e';
-      ctx.beginPath();
-      ctx.arc(6, 0, 4.5, 0, Math.PI * 2);
-      ctx.fill();
+        // Distinct Eyes
+        ctx.fillStyle = comp.eyeColor;
+        ctx.shadowColor = comp.eyeColor;
+        ctx.shadowBlur = 4;
+        ctx.beginPath();
+        ctx.arc(6.5, -3, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(6.5, 3, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
 
-      // Ruby-Red Eyes
-      ctx.fillStyle = '#ff2a4b';
-      ctx.shadowColor = '#ff2a4b';
-      ctx.shadowBlur = 4;
-      ctx.beginPath();
-      ctx.arc(7, -3.5, 2.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(7, 3.5, 2.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+        ctx.restore();
 
-      ctx.restore();
+        // Live Position Pill Badge above each fly (P1, P2, P3, P4)
+        ctx.save();
+        ctx.font = 'bold 9px monospace';
+        ctx.textAlign = 'center';
+        const badgeColor = comp.rank === 1 ? '#fbbf24' : comp.rank === 2 ? '#cbd5e1' : comp.rank === 3 ? '#cd7f32' : '#64748b';
+        ctx.fillStyle = badgeColor;
+        ctx.fillText(`P${comp.rank}`, cfly.x, cfly.y - 12);
+        ctx.restore();
+      });
 
       // -------------------------------------------------------------
-      // 3. Status Overlays: Replay Mode vs F1 Lights vs Waiting
+      // 3. Status Overlays
       // -------------------------------------------------------------
       if (replaying) {
-        // Replay Mode Top Banner
         const progress = Math.min(100, Math.round((replayIndexRef.current / (lastRunReplayFrames.current.length || 1)) * 100));
 
         ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
         ctx.strokeStyle = '#06b6d4';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.roundRect(w / 2 - 170, 35, 340, 52, 14);
+        ctx.roundRect(w / 2 - 180, 35, 360, 52, 14);
         ctx.fill();
         ctx.stroke();
 
         ctx.font = 'bold 12px monospace';
         ctx.fillStyle = '#22d3ee';
         ctx.textAlign = 'center';
-        ctx.fillText(`📹 REPLAY OF LAST RUN • ${progress}%`, w / 2, 58);
+        ctx.fillText(`📹 4-FLY GRAND PRIX REPLAY • ${progress}%`, w / 2, 58);
 
         ctx.font = '10px monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Replaying autonomous optical flow and steering trajectory', w / 2, 74);
+        ctx.fillText('Replaying multi-fly trajectory and overtaking maneuvers', w / 2, 74);
       } else if (currentStatus === 'STARTING_LIGHTS') {
         const lx = w / 2 - 100;
         const ly = 70;
@@ -475,7 +531,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         ctx.textAlign = 'center';
         ctx.fillText('LIGHTS OUT AND AWAY WE GO!', w / 2, ly + 65);
       } else if (currentStatus === 'WAITING') {
-        const bw = 320;
+        const bw = 340;
         const bh = 50;
         const bx = w / 2 - bw / 2;
         const by = 40;
@@ -491,11 +547,11 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         ctx.font = 'bold 11px monospace';
         ctx.fillStyle = '#38bdf8';
         ctx.textAlign = 'center';
-        ctx.fillText('🏁 GRID STANDBY • FLY IDLING ON POLE', w / 2, by + 22);
+        ctx.fillText('🏁 4 FLIES ON THE STARTING GRID', w / 2, by + 22);
 
         ctx.font = '10px monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Track opens automatically when scheduled race starts', w / 2, by + 38);
+        ctx.fillText('Official Grand Prix heat starts automatically on schedule', w / 2, by + 38);
       } else if (currentStatus === 'FINISHED') {
         ctx.fillStyle = 'rgba(3, 7, 18, 0.9)';
         ctx.strokeStyle = '#10b981';
@@ -508,11 +564,11 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         ctx.font = 'bold 12px monospace';
         ctx.fillStyle = '#34d399';
         ctx.textAlign = 'center';
-        ctx.fillText('🏁 CHECKERED FLAG • OFFICIAL HEAT COMPLETE', w / 2, 68);
+        ctx.fillText('🏁 CHECKERED FLAG • RACE FINISHED', w / 2, 68);
 
         ctx.font = '10px monospace';
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('Returning to paddock for next scheduled heat...', w / 2, 84);
+        ctx.fillText(`Winner: ${leader.name} (${leader.team})`, w / 2, 84);
       }
     };
 
@@ -539,14 +595,14 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
             <span className={`w-1.5 h-1.5 rounded-full ${
               isReplaying ? 'bg-cyan-400 animate-pulse' : raceStatus === 'RACING' ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'
             }`} />
-            <span>CIRCUIT DE MONACO-DROSOPHILA</span>
+            <span>CIRCUIT DE MONACO • 4-FLY GRID</span>
           </div>
         </div>
 
         {/* Top Right Status */}
         <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-800 text-[10px] font-mono text-slate-400 pointer-events-none">
           <span className={`w-2 h-2 rounded-full ${isReplaying ? 'bg-cyan-400 animate-ping' : 'bg-rose-500 animate-pulse'}`} />
-          <span>{isReplaying ? 'INSTANT REPLAY ACTIVE' : 'LIVE TELEMETRY FEED'}</span>
+          <span>{isReplaying ? '4-FLY REPLAY' : 'LIVE FEED'}</span>
         </div>
       </div>
     </div>
