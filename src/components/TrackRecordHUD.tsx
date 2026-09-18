@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { RacingTelemetry, TrackRecord, RaceStatus } from '@/types/racing';
-import { Trophy, Trash2, Flame } from 'lucide-react';
+import { Trophy, Trash2, Flame, Dna } from 'lucide-react';
 
 interface TrackRecordHUDProps {
   raceStatus: RaceStatus;
@@ -15,6 +15,7 @@ interface TrackRecordHUDProps {
   newRecordAlert: TrackRecord | null;
   focusedFlyId?: string;
   onSelectFly?: (id: string) => void;
+  onInspectFly?: (id: string) => void;
   onClearHistory?: () => void;
 }
 
@@ -23,6 +24,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
   newRecordAlert,
   focusedFlyId = 'fly-1',
   onSelectFly,
+  onInspectFly,
   onClearHistory,
 }) => {
   const record = telemetry?.lapRecord;
@@ -53,7 +55,7 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             <span>TIMING TOWER • P1–P4</span>
           </span>
-          <span className="text-[10px] text-slate-400">Click to focus brain</span>
+          <span className="text-[10px] text-cyan-400 font-bold">Click fly to inspect DNA</span>
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -71,7 +73,10 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
             return (
               <div
                 key={comp.id}
-                onClick={() => onSelectFly?.(comp.id)}
+                onClick={() => {
+                  onSelectFly?.(comp.id);
+                  onInspectFly?.(comp.id);
+                }}
                 className={`px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between text-xs font-mono ${isFocused
                     ? 'bg-slate-800/90 border-cyan-500/70 shadow-[0_0_12px_rgba(6,182,212,0.2)] ring-1 ring-cyan-500/40'
                     : 'bg-slate-950/50 border-slate-800/80 hover:bg-slate-800/40 hover:border-slate-700'
@@ -104,9 +109,17 @@ export const TrackRecordHUD: React.FC<TrackRecordHUDProps> = ({
                     </span>
                     <span className="text-slate-500 text-[9px]">{comp.bestLap}</span>
                   </div>
-                  {isFocused && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0" title="Connectome Linked" />
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectFly?.(comp.id);
+                      onInspectFly?.(comp.id);
+                    }}
+                    className="p-1 rounded bg-slate-900/80 hover:bg-cyan-500/20 text-slate-400 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 transition-colors"
+                    title="Inspect Genetics & Evolution"
+                  >
+                    <Dna className="w-3.5 h-3.5 text-cyan-400" />
+                  </button>
                 </div>
               </div>
             );

@@ -30,6 +30,7 @@ interface RaceTrackCanvasProps {
   onNewRecord: (record: TrackRecord) => void;
   onRaceFinished: (winner: FlyCompetitor, finalRecord: TrackRecord | null) => void;
   onSaveRunReplay?: (frames: MultiFlyFrame[], winner: FlyCompetitor, record: TrackRecord | null) => void;
+  onInspectFly?: (flyId: string) => void;
   focusedFlyId?: string;
   totalRaceLaps?: number;
 }
@@ -45,6 +46,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
   onNewRecord,
   onRaceFinished,
   onSaveRunReplay,
+  onInspectFly,
   focusedFlyId = 'fly-1',
   totalRaceLaps = 2,
 }) => {
@@ -58,6 +60,8 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
 
   const focusedFlyIdRef = useRef(focusedFlyId);
   focusedFlyIdRef.current = focusedFlyId;
+
+  const hoveredFlyIdRef = useRef<string | null>(null);
 
   const recordedRunFrames = useRef<MultiFlyFrame[]>([]);
   const lastRunReplayFrames = useRef<MultiFlyFrame[]>([]);
@@ -277,6 +281,7 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
           gap: c.gapToLeader,
           bestLap: c.bestLapTime ? formatLapTime(c.bestLapTime) : '--',
         })),
+        competitorDetails: competitors,
         focusedFlyId: focusedComp.id,
       });
 
@@ -489,6 +494,26 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
         const badgeColor = comp.rank === 1 ? '#fbbf24' : comp.rank === 2 ? '#cbd5e1' : comp.rank === 3 ? '#cd7f32' : '#64748b';
         ctx.fillStyle = badgeColor;
         ctx.fillText(`P${comp.rank}`, cfly.x, cfly.y - 12);
+
+        const isFocused = comp.id === focusedFlyIdRef.current;
+        const isHovered = comp.id === hoveredFlyIdRef.current;
+
+        if (isFocused || isHovered) {
+          ctx.strokeStyle = isHovered ? '#22d3ee' : `${comp.eyeColor}aa`;
+          ctx.lineWidth = isHovered ? 2 : 1.5;
+          ctx.setLineDash(isHovered ? [4, 4] : [2, 3]);
+          ctx.beginPath();
+          ctx.arc(cfly.x, cfly.y, isHovered ? 18 : 15, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        if (isHovered) {
+          ctx.font = 'bold 8px monospace';
+          ctx.fillStyle = '#22d3ee';
+          ctx.fillText('CLICK TO INSPECT DNA', cfly.x, cfly.y + 19);
+        }
+
         ctx.restore();
       });
 
@@ -596,6 +621,56 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
     };
   }, [onTelemetryUpdate, onNewRecord, onRaceFinished, totalRaceLaps, startingLightsCount, onReplayFinished, onHasReplayChange]);
 
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const coords = getCanvasCoords(e);
+    if (!coords) return;
+    const competitors = simRef.current.competitors;
+    let foundId: string | null = null;
+    for (const comp of competitors) {
+      const d = Math.hypot(coords.x - comp.state.x, coords.y - comp.state.y);
+      if (d < 30) {
+        foundId = comp.id;
+        break;
+      }
+    }
+    hoveredFlyIdRef.current = foundId;
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = foundId ? 'pointer' : 'default';
+    }
+  };
+
+  const handleCanvasMouseLeave = () => {
+    hoveredFlyIdRef.current = null;
+    if (canvasRef.current) {
+      canvasRef.current.style.cursor = 'default';
+    }
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const coords = getCanvasCoords(e);
+    if (!coords) return;
+    const competitors = simRef.current.competitors;
+    for (const comp of competitors) {
+      const d = Math.hypot(coords.x - comp.state.x, coords.y - comp.state.y);
+      if (d < 35) {
+        onInspectFly?.(comp.id);
+        break;
+      }
+    }
+  };
+
   return (
     <div className="w-full h-full min-h-0 flex flex-col items-center justify-center">
       <div className="relative w-full h-full min-h-0 rounded-2xl overflow-hidden bg-[#060a12] border border-slate-800/80 shadow-[0_0_35px_rgba(0,0,0,0.8)] flex items-center justify-center">
@@ -603,6 +678,9 @@ export const RaceTrackCanvas: React.FC<RaceTrackCanvasProps> = ({
           ref={canvasRef}
           width={900}
           height={550}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
+          onClick={handleCanvasClick}
           className="max-w-full max-h-full w-auto h-auto object-contain block aspect-[900/550]"
         />
 

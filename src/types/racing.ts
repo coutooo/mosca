@@ -76,6 +76,37 @@ export interface FlyCarState {
   raySensors: RaySensor[];
 }
 
+export interface FlyGenetics {
+  strain: string;
+  genotype: string;
+  eyePhenotype: string;
+  photoreceptors: string;
+  synapticComplexity: string;
+  synapticPlasticity: string;
+}
+
+export interface FlyDrivingStyle {
+  title: string;
+  tagline: string;
+  description: string;
+  traits: string[];
+  aggressionScore: number; // 0 - 100
+  corneringScore: number;  // 0 - 100
+  speedScore: number;      // 0 - 100
+  plasticityScore: number; // 0 - 100
+}
+
+export interface FlyLapHistoryItem {
+  lapNumber: number;
+  lapTime: number;
+  formattedTime: string;
+  topSpeed: number;
+  timestamp: string;
+  deltaToBest: number | null; // in seconds
+  deltaToPrev: number | null;
+  isBest: boolean;
+}
+
 export interface FlyCompetitor {
   id: string;
   name: string;
@@ -89,6 +120,9 @@ export interface FlyCompetitor {
   gapToLeader: string;
   bestLapTime: number | null;
   lastLapTime: number | null;
+  genetics: FlyGenetics;
+  drivingStyle: FlyDrivingStyle;
+  lapHistory: FlyLapHistoryItem[];
 }
 
 export interface TrackRecord {
@@ -128,6 +162,7 @@ export interface RacingTelemetry {
     gap: string;
     bestLap: string;
   }[];
+  competitorDetails?: FlyCompetitor[];
   focusedFlyId: string;
 }
 

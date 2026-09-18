@@ -6,10 +6,11 @@ import { RaceTrackCanvas } from '@/components/RaceTrackCanvas';
 import { TrackRecordHUD } from '@/components/TrackRecordHUD';
 import { Brain3D } from '@/components/Brain3D';
 import { ReplayArchiveModal } from '@/components/ReplayArchiveModal';
+import { FlyProfileModal } from '@/components/FlyProfileModal';
 import { calculateNextRaceCountdown, formatCountdown } from '@/lib/raceSchedule';
-import { clearStoredRecords } from '@/lib/racingConnectome';
+import { clearStoredRecords, createCompetitors } from '@/lib/racingConnectome';
 import { getSavedReplays, saveRaceReplay } from '@/lib/replayStorage';
-import { formatLapTime } from '@/lib/trackData';
+import { formatLapTime, getCircuitData } from '@/lib/trackData';
 import {
   Trophy,
   Share2,
@@ -19,6 +20,7 @@ import {
   Video,
   Square,
   History,
+  Dna,
 } from 'lucide-react';
 
 export default function Home() {
@@ -26,6 +28,8 @@ export default function Home() {
   const [newRecordAlert, setNewRecordAlert] = useState<TrackRecord | null>(null);
   const [copied, setCopied] = useState(false);
   const [focusedFlyId, setFocusedFlyId] = useState<string>('fly-1');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [inspectingFlyId, setInspectingFlyId] = useState<string>('fly-1');
 
   // Daily scheduled race lifecycle states (13:00 and 21:00)
   const [raceStatus, setRaceStatus] = useState<RaceStatus>('WAITING');
@@ -154,6 +158,25 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleInspectFly = useCallback((flyId: string) => {
+    setFocusedFlyId(flyId);
+    setInspectingFlyId(flyId);
+    setIsProfileModalOpen(true);
+  }, []);
+
+  const defaultFliesRef = React.useRef<ReturnType<typeof createCompetitors> | null>(null);
+  if (!defaultFliesRef.current) {
+    defaultFliesRef.current = createCompetitors(getCircuitData());
+  }
+
+  const allFlies =
+    telemetry?.competitorDetails && telemetry.competitorDetails.length > 0
+      ? telemetry.competitorDetails
+      : defaultFliesRef.current || [];
+
+  const currentInspectedFly =
+    allFlies.find((f) => f.id === inspectingFlyId) || allFlies[0] || null;
+
   const activeFly = telemetry?.competitors?.find((c) => c.id === focusedFlyId);
   const currentLapTime = telemetry?.currentLapTime || 0;
   const isRacing = raceStatus === 'RACING';
@@ -268,6 +291,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
               onNewRecord={handleNewRecord}
               onRaceFinished={handleRaceFinished}
               onSaveRunReplay={handleSaveRunReplay}
+              onInspectFly={handleInspectFly}
               focusedFlyId={focusedFlyId}
               totalRaceLaps={2}
             />
@@ -338,9 +362,14 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
                 <Sparkles className="w-3 h-3 text-cyan-400" />
                 <span>3D CONNECTOME</span>
               </span>
-              <span className="text-[10px] font-mono text-cyan-400">
-                {activeFly?.name || 'Janelia Red'} (P{activeFly?.rank || 1})
-              </span>
+              <button
+                onClick={() => handleInspectFly(focusedFlyId)}
+                className="text-[10px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline transition-all cursor-pointer"
+                title="Inspect Drosophila Genetics & Evolution"
+              >
+                <Dna className="w-3 h-3" />
+                <span>{activeFly?.name || 'Janelia Red'} (P{activeFly?.rank || 1}) • DNA</span>
+              </button>
             </div>
 
             {/* 4 Competitor Selector Buttons */}
@@ -425,6 +454,7 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
               newRecordAlert={newRecordAlert}
               focusedFlyId={focusedFlyId}
               onSelectFly={setFocusedFlyId}
+              onInspectFly={handleInspectFly}
               onClearHistory={handleClearHistory}
             />
           </div>
@@ -437,6 +467,20 @@ Runs only 2 official heats per day (13:00 & 21:00) with autonomous multi-fly ove
         onClose={() => setIsArchiveOpen(false)}
         replays={savedReplays}
         onSelectReplay={handleSelectReplay}
+      />
+
+      {/* Fly Genetics, Driving Style & Lap Evolution Modal */}
+      <FlyProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        fly={currentInspectedFly}
+        allFlies={allFlies}
+        onSelectFly={(id) => {
+          setInspectingFlyId(id);
+          setFocusedFlyId(id);
+        }}
+        isLiveFocused={focusedFlyId === inspectingFlyId}
+        onFocusLiveFly={(id) => setFocusedFlyId(id)}
       />
     </main>
   );
